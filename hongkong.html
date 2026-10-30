@@ -1,0 +1,533 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hong Kong Trip Map</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+  :root {
+    --bg: #f6f5f2;
+    --panel: #ffffff;
+    --text: #1d1d1f;
+    --muted: #6b6b70;
+    --line: #e4e2dd;
+    --accent: #c8102e;
+    --chip: #efede8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #141416; --panel: #1c1c1f; --text: #f2f2f2; --muted: #9a9aa0;
+      --line: #2e2e33; --accent: #ff4d5e; --chip: #2a2a2f;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #141416; --panel: #1c1c1f; --text: #f2f2f2; --muted: #9a9aa0;
+    --line: #2e2e33; --accent: #ff4d5e; --chip: #2a2a2f;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--bg); color: var(--text);
+    font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    display: grid; grid-template-columns: 380px 1fr; height: 100vh;
+  }
+
+  aside { background: var(--panel); border-right: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
+  header { padding: 18px 16px 12px; border-bottom: 1px solid var(--line); }
+  h1 { margin: 0; font-size: 20px; letter-spacing: -0.01em; }
+  h1 small { font-weight: 500; color: var(--muted); font-size: 14px; margin-left: 6px; }
+  .progress { margin-top: 6px; color: var(--muted); font-size: 13px; }
+  .bar { height: 4px; background: var(--chip); border-radius: 2px; margin-top: 6px; overflow: hidden; }
+  .bar > i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .3s; }
+
+  .controls { padding: 12px 16px; border-bottom: 1px solid var(--line); display: grid; gap: 10px; }
+  input[type=search] {
+    width: 100%; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--line);
+    background: var(--bg); color: var(--text); font: inherit;
+  }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    border: 1px solid transparent; background: var(--chip); color: var(--text);
+    padding: 5px 10px; border-radius: 999px; font: inherit; font-size: 13px; cursor: pointer;
+  }
+  .chip[aria-pressed="true"] { background: var(--accent); color: #fff; }
+  .row { display: flex; gap: 8px; align-items: center; justify-content: space-between; font-size: 13px; color: var(--muted); }
+  .row label { display: flex; gap: 6px; align-items: center; cursor: pointer; }
+  .btn {
+    border: 1px solid var(--line); background: var(--panel); color: var(--text);
+    padding: 6px 10px; border-radius: 8px; font: inherit; font-size: 13px; cursor: pointer;
+  }
+
+  #list { overflow-y: auto; flex: 1; padding: 4px 0 24px; }
+  .group h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 16px 16px 6px; }
+  .item { display: grid; grid-template-columns: 56px 1fr auto; gap: 12px; padding: 8px 16px; cursor: pointer; align-items: center; }
+  .thumb { position: relative; width: 56px; height: 56px; }
+  .thumb img { width: 100%; height: 100%; object-fit: cover; border-radius: 10px; display: block; background: var(--chip); }
+  .thumb span {
+    position: absolute; right: -4px; bottom: -4px; width: 22px; height: 22px; border-radius: 50%;
+    background: var(--panel); display: grid; place-items: center; font-size: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.25);
+  }
+  .item .dot { margin: 0 auto; }
+  .item.done .thumb img { filter: grayscale(1); opacity: .6; }
+  .credit { padding: 8px 16px 16px; font-size: 11px; color: var(--muted); }
+  .item:hover { background: var(--bg); }
+  .item .dot { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-size: 15px; background: var(--c); }
+  .item b { display: block; font-weight: 600; }
+  .item .sub { color: var(--muted); font-size: 12.5px; }
+  .item.done b { text-decoration: line-through; color: var(--muted); }
+  .item input { margin-top: 6px; width: 17px; height: 17px; accent-color: var(--accent); }
+
+  #map { height: 100%; min-height: 0; }
+
+  .pin {
+    width: 30px; height: 30px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg);
+    background: var(--c); border: 2px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,.35);
+    display: grid; place-items: center;
+  }
+  .pin span { transform: rotate(45deg); font-size: 14px; }
+  .pin.done { filter: grayscale(1); opacity: .6; }
+  .pin.big { width: 58px; height: 58px; border-width: 3px; }
+  .pin.big span { font-size: 22px; }
+  .pin.big img { width: 46px; height: 46px; border-radius: 50%; object-fit: cover; transform: rotate(45deg); border: 2px solid #fff; box-sizing: border-box; }
+  .leaflet-tooltip.lbl {
+    background: transparent; border: 0; box-shadow: none; padding: 0;
+    font-weight: 600; font-size: 12px; color: #222;
+    text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 0 3px #fff;
+  }
+  .leaflet-tooltip.lbl::before { display: none; }
+  .hide-labels .leaflet-tooltip.lbl:not(.keep) { display: none; }
+  .leaflet-tooltip.lbl.keep { font-size: 13px; }
+  .region, .district, .water { pointer-events: none; white-space: nowrap; }
+  .region > div, .district > div, .water > div { transform: translate(-50%, -50%); }
+  .region {
+    font-weight: 700; font-size: 13px; letter-spacing: .14em; color: #8a8f98; text-align: center;
+    text-shadow: 0 0 3px #fff, 0 0 3px #fff;
+  }
+  .region small { display: block; font-size: 11px; letter-spacing: .1em; font-weight: 500; }
+  .district { font-size: 11.5px; font-weight: 600; color: #9aa0a8; text-shadow: 0 0 3px #fff, 0 0 3px #fff; }
+  .water { font-size: 12px; font-style: italic; color: #7fa7c9; letter-spacing: .05em; }
+
+  .pop .photo { display: block; width: 100%; height: 150px; object-fit: cover; border-radius: 8px; margin-bottom: 10px; background: #eee; }
+  .pop h3 { margin: 0 0 2px; font-size: 15px; }
+  .pop .zh { color: #777; font-size: 13px; }
+  .pop p { margin: 8px 0; }
+  .pop .meta { font-size: 12px; color: #555; }
+  .pop .links { display: flex; gap: 6px; margin-top: 8px; }
+  .pop .links a {
+    flex: 1; text-align: center; padding: 6px 8px; border-radius: 8px; text-decoration: none;
+    background: #1a73e8; color: #fff; font-weight: 600; font-size: 12px;
+  }
+  .pop .links a.alt { background: #eef3fd; color: #1a73e8; }
+
+  #toggle { display: none; }
+
+  @media (max-width: 768px) {
+    body { grid-template-columns: 1fr; grid-template-rows: 55vh 1fr; }
+    #map { grid-row: 1; }
+    aside { grid-row: 2; border-right: 0; border-top: 1px solid var(--line); }
+    header { padding: 12px 16px 8px; }
+  }
+</style>
+</head>
+<body>
+<aside>
+  <header>
+    <h1>Hong Kong <small>香港</small></h1>
+    <div class="progress" id="progress"></div>
+    <div class="bar"><i id="bar"></i></div>
+  </header>
+  <div class="controls">
+    <input type="search" id="q" placeholder="Tìm địa điểm, khu vực, món ăn…">
+    <div class="chips" id="chips"></div>
+    <div class="row">
+      <label><input type="checkbox" id="hideDone"> Ẩn chỗ đã đi</label>
+      <button class="btn" id="kml" title="Import vào Google My Maps">Tải KML</button>
+    </div>
+  </div>
+  <div id="list"></div>
+</aside>
+<div id="map"></div>
+
+<script>
+// ============================================================
+//  DỮ LIỆU — sửa / thêm địa điểm ở đây.
+//  Lấy toạ độ: Google Maps → chuột phải vào điểm → click dòng số đầu tiên để copy.
+// ============================================================
+const TRIP_KEY = "hongkong";
+
+const CATEGORIES = {
+  view:    { label: "Tham quan",  emoji: "🏞️", color: "#2b6cb0" },
+  shop:    { label: "Mua sắm",    emoji: "🛍️", color: "#805ad5" },
+  market:  { label: "Chợ",        emoji: "🧺", color: "#2f855a" },
+  food:    { label: "Ăn uống",    emoji: "🍜", color: "#e53e3e" },
+  cafe:    { label: "Cafe & bánh", emoji: "☕", color: "#8a5a3b" },
+  fun:     { label: "Giải trí",   emoji: "🎢", color: "#dd6b20" },
+  stay:    { label: "Lưu trú & di chuyển", emoji: "🏨", color: "#111827" },
+};
+
+const PLACES = [
+  // --- Tham quan (ngắm cảnh, văn hoá, check-in, thiên nhiên) ---
+  { cat: "view", name: "Victoria Peak", zh: "太平山頂", lat: 22.2710, lng: 114.1497, area: "The Peak",
+    note: "View skyline đẹp nhất HK. Lên Sky Terrace 428 hoặc đi bộ Lugard Road (miễn phí, view y chang).", time: "Hoàng hôn → tối", mtr: "Central → Peak Tram",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/7d/High_West_and_Victoria_Peak_from_Victoria_Gap_%28crop1%29.jpg/960px-High_West_and_Victoria_Peak_from_Victoria_Gap_%28crop1%29.jpg" },
+  { cat: "view", name: "Peak Tram", zh: "山頂纜車", lat: 22.2779, lng: 114.1595, area: "Central",
+    note: "Tàu leo dốc lên đỉnh Peak. Ngồi bên PHẢI để thấy view. Đi sớm trước 10h đỡ xếp hàng.", time: "Sáng sớm", mtr: "Central (exit J2)",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/27/CWA_6th_Generation_Peak_Tram.jpg/960px-CWA_6th_Generation_Peak_Tram.jpg" },
+  { cat: "view", name: "Avenue of Stars", zh: "星光大道", lat: 22.2930, lng: 114.1738, area: "Tsim Sha Tsui",
+    note: "Đi dạo bờ cảng nhìn sang đảo HK. Show ánh sáng Symphony of Lights lúc 20:00 mỗi tối.", time: "20:00", mtr: "East TST",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/06/Avenue_of_Stars_201901.jpg/960px-Avenue_of_Stars_201901.jpg" },
+  { cat: "view", name: "Star Ferry", zh: "天星小輪", lat: 22.2939, lng: 114.1686, area: "Tsim Sha Tsui ↔ Central",
+    note: "Phà 100+ năm tuổi, vài HKD, 10 phút qua cảng — cách rẻ nhất để ngắm Victoria Harbour.", time: "Chiều tối", mtr: "Tsim Sha Tsui",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/59/Tsim_Sha_Tsui_Ferry_Pier.jpg/960px-Tsim_Sha_Tsui_Ferry_Pier.jpg" },
+  { cat: "view", name: "Sky100", zh: "天際100", lat: 22.3034, lng: 114.1601, area: "West Kowloon (ICC)",
+    note: "Đài quan sát tầng 100 toà ICC, view 360°.", time: "Hoàng hôn", mtr: "Kowloon",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/04/Sky100-wikimania2013-1.jpg/960px-Sky100-wikimania2013-1.jpg" },
+  { cat: "view", name: "Hong Kong Observation Wheel", zh: "香港摩天輪", lat: 22.2853, lng: 114.1613, area: "Central Harbourfront",
+    note: "Vòng quay ven cảng, đẹp nhất lúc lên đèn.", time: "Tối", mtr: "Central / Hong Kong",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/3b/Hong_Kong_Observation_Wheel_Sept_2018.jpg/960px-Hong_Kong_Observation_Wheel_Sept_2018.jpg" },
+
+  { cat: "view", name: "Man Mo Temple", zh: "文武廟", lat: 22.2840, lng: 114.1500, area: "Sheung Wan",
+    note: "Đền cổ với những vòng nhang xoắn treo trần — chụp rất đẹp.", time: "Sáng", mtr: "Sheung Wan",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/ee/Man_Mo_Temple%2C_1847-62%2C_Sheung_Wan%2C_Hong_Kong_%2817%29_%2832748033042%29.jpg/960px-Man_Mo_Temple%2C_1847-62%2C_Sheung_Wan%2C_Hong_Kong_%2817%29_%2832748033042%29.jpg" },
+  { cat: "view", name: "Wong Tai Sin Temple", zh: "黃大仙祠", lat: 22.3423, lng: 114.1937, area: "Wong Tai Sin",
+    note: "Ngôi đền nổi tiếng 'cầu gì được nấy', xin xăm.", time: "Sáng", mtr: "Wong Tai Sin (exit B2)",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/2e/HK_WongTaiSinTemple.JPG/960px-HK_WongTaiSinTemple.JPG" },
+  { cat: "view", name: "Chi Lin Nunnery & Nan Lian Garden", zh: "志蓮淨苑 · 南蓮園池", lat: 22.3404, lng: 114.2040, area: "Diamond Hill",
+    note: "Chùa gỗ kiến trúc Đường + vườn cảnh, miễn phí. Kết hợp đi chung với Wong Tai Sin.", time: "Sáng", mtr: "Diamond Hill (exit C2)",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d0/Chi_Lin_Nunnery_%282037672635%29.jpg/960px-Chi_Lin_Nunnery_%282037672635%29.jpg" },
+  { cat: "view", name: "Tian Tan Buddha (Big Buddha)", zh: "天壇大佛", lat: 22.2540, lng: 113.9050, area: "Ngong Ping, Lantau",
+    note: "Tượng Phật ngồi bằng đồng khổng lồ + chùa Po Lin. Đi cáp treo Ngong Ping 360 lên. Mất nửa ngày.", time: "Cả buổi sáng", mtr: "Tung Chung → cáp treo",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/2c/Tian_Tan_Buddha_2023081302.jpg/960px-Tian_Tan_Buddha_2023081302.jpg" },
+  { cat: "view", name: "Tai Kwun", zh: "大館", lat: 22.2816, lng: 114.1543, area: "Central",
+    note: "Đồn cảnh sát & nhà tù cũ thành khu nghệ thuật, nhiều quán xinh. Miễn phí.", time: "Chiều", mtr: "Central (exit D2)",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/dc/Tai_Kwun_Police_Headquarters_Block_201806.jpg/960px-Tai_Kwun_Police_Headquarters_Block_201806.jpg" },
+  { cat: "view", name: "PMQ", zh: "元創方", lat: 22.2836, lng: 114.1519, area: "Central",
+    note: "Ký túc xá cảnh sát cũ, giờ là shop đồ thiết kế của local brand.", time: "Chiều", mtr: "Sheung Wan / Central",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f8/PMQ_Overview_201510.jpg/960px-PMQ_Overview_201510.jpg" },
+  { cat: "view", name: "M+ Museum", zh: "M+", lat: 22.3011, lng: 114.1598, area: "West Kowloon",
+    note: "Bảo tàng nghệ thuật đương đại. Sân thượng có view skyline cực đẹp (free).", time: "Chiều", mtr: "Kowloon / Austin",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/1e/WKCD_M%2B%2C_2021.11.jpg/960px-WKCD_M%2B%2C_2021.11.jpg" },
+  { cat: "view", name: "Hong Kong Palace Museum", zh: "香港故宮文化博物館", lat: 22.3017, lng: 114.1564, area: "West Kowloon",
+    note: "Hiện vật từ Tử Cấm Thành Bắc Kinh. Nên đặt vé trước.", time: "Chiều", mtr: "Kowloon",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/31/Hong_Kong_Palace_Museum_2022.jpg/960px-Hong_Kong_Palace_Museum_2022.jpg" },
+  { cat: "view", name: "1881 Heritage", zh: "1881", lat: 22.2950, lng: 114.1706, area: "Tsim Sha Tsui",
+    note: "Trụ sở cảnh sát thuỷ cũ kiểu thuộc địa, chụp hình đẹp, nhất là tối.", time: "Tối", mtr: "Tsim Sha Tsui",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/3a/1881_Heritage_Complex.jpg/960px-1881_Heritage_Complex.jpg" },
+  { cat: "view", name: "Blue House", zh: "藍屋", lat: 22.2737, lng: 114.1730, area: "Wan Chai",
+    note: "Toà nhà tong lau xanh dương cổ, gần Lee Tung Avenue.", time: "Bất kỳ", mtr: "Wan Chai",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a6/Blue_House%2C_Hong_Kong.jpg/960px-Blue_House%2C_Hong_Kong.jpg" },
+
+  { cat: "view", name: "Monster Building", zh: "怪獸大廈 (益昌大廈)", lat: 22.2853, lng: 114.2124, area: "Quarry Bay",
+    note: "Khu chung cư dày đặc trong Transformers 4. Giữ yên lặng, cư dân đang sống.", time: "Sáng / chiều", mtr: "Tai Koo (exit B)",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c7/Looking_upward_at_the_Yick_Cheong_Building%2C_13_June_2019.jpg/960px-Looking_upward_at_the_Yick_Cheong_Building%2C_13_June_2019.jpg" },
+  { cat: "view", name: "Choi Hung Estate", zh: "彩虹邨", lat: 22.3349, lng: 114.2082, area: "Choi Hung",
+    note: "Chung cư cầu vồng + sân bóng rổ trên nóc bãi xe.", time: "Sáng", mtr: "Choi Hung (exit C4)",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/43/Choi_Hung_Estate_2018.jpg/960px-Choi_Hung_Estate_2018.jpg" },
+  { cat: "view", name: "Mid-Levels Escalator", zh: "中環至半山自動扶梯", lat: 22.2826, lng: 114.1546, area: "Central",
+    note: "Thang cuốn ngoài trời dài nhất thế giới, đi qua SoHo. Chỉ chạy lên sau 10h sáng.", time: "Sau 10h", mtr: "Central",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f8/Central-Mid-Levels_Escalator_and_Walkway_System_2017.jpg/960px-Central-Mid-Levels_Escalator_and_Walkway_System_2017.jpg" },
+  { cat: "view", name: "Ding Ding Tram (Western Market)", zh: "叮叮車 · 西港城", lat: 22.2869, lng: 114.1505, area: "Sheung Wan",
+    note: "Leo lên tầng 2 hàng ghế đầu tàu điện leng keng, đi dọc đảo HK chỉ ~3 HKD.", time: "Bất kỳ", mtr: "Sheung Wan",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/ba/Hong_Kong_Tramways_in_2017.jpg/960px-Hong_Kong_Tramways_in_2017.jpg" },
+  { cat: "view", name: "Tai O Fishing Village", zh: "大澳", lat: 22.2532, lng: 113.8618, area: "Lantau",
+    note: "Làng chài nhà sàn, đi thuyền xem cá heo hồng. Combo với Big Buddha.", time: "Chiều", mtr: "Bus 21 từ Ngong Ping",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/74/1_tai_o_hong_kong_2013.jpg/960px-1_tai_o_hong_kong_2013.jpg" },
+  { cat: "view", name: "Kennedy Town Waterfront", zh: "堅尼地城", lat: 22.2839, lng: 114.1270, area: "Kennedy Town",
+    note: "Ngắm hoàng hôn ven biển, khu cafe chill.", time: "Hoàng hôn", mtr: "Kennedy Town",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/2e/Kennedy_Town_3.jpg/960px-Kennedy_Town_3.jpg" },
+
+  { cat: "view", name: "Dragon's Back", zh: "龍脊", lat: 22.2390, lng: 114.2440, area: "Shek O",
+    note: "Cung trekking dễ, ~2–3 tiếng, view biển cực đẹp. Bus 9 từ Shau Kei Wan, xuống To Tei Wan.", time: "Sáng", mtr: "Shau Kei Wan → bus 9",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/32/Dragon%27s_Back_-_Trail_Start%2C_Hong_Kong_%28Unsplash%29.jpg/960px-Dragon%27s_Back_-_Trail_Start%2C_Hong_Kong_%28Unsplash%29.jpg" },
+  { cat: "view", name: "Repulse Bay", zh: "淺水灣", lat: 22.2367, lng: 114.1966, area: "Southern District",
+    note: "Bãi biển hình trăng khuyết, nước trong. Ghé trên đường đi Stanley.", time: "Trưa", mtr: "Bus 6/6X từ Central",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d4/View_of_Repulse_Bay_from_Sir_Cecil%27s_Ride.jpg/960px-View_of_Repulse_Bay_from_Sir_Cecil%27s_Ride.jpg" },
+  { cat: "view", name: "Lion Rock", zh: "獅子山", lat: 22.3520, lng: 114.1870, area: "Kowloon",
+    note: "Leo ~1.5 tiếng, view toàn Kowloon từ đầu 'sư tử'. Biểu tượng tinh thần HK.", time: "Sáng / hoàng hôn", mtr: "Wong Tai Sin",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c5/Lion_Rock_5.jpg/960px-Lion_Rock_5.jpg" },
+  { cat: "view", name: "Sai Kung", zh: "西貢", lat: 22.3816, lng: 114.2709, area: "Sai Kung",
+    note: "Thị trấn hải sản, đi thuyền ra đảo / bãi biển hoang sơ.", time: "Cả ngày", mtr: "Diamond Hill → minibus 1A",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f2/Sai_Kung_Town_Aerial_View_201706.jpg/960px-Sai_Kung_Town_Aerial_View_201706.jpg" },
+  { cat: "view", name: "Lamma Island", zh: "南丫島", lat: 22.2270, lng: 114.1080, area: "Đảo",
+    note: "Đảo không xe hơi, đi bộ Yung Shue Wan → Sok Kwu Wan, ăn hải sản. Phà từ Central Pier 4.", time: "Nửa ngày", mtr: "Central Pier 4",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/54/Aerial_photo_of_Yung_Shue_Wan%2C_Lamma_Island.jpg/960px-Aerial_photo_of_Yung_Shue_Wan%2C_Lamma_Island.jpg" },
+  { cat: "view", name: "Cheung Chau", zh: "長洲", lat: 22.2095, lng: 114.0285, area: "Đảo",
+    note: "Đảo làng chài, xiên cá viên khổng lồ, bánh bao may mắn. Phà từ Central Pier 5.", time: "Nửa ngày", mtr: "Central Pier 5",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/21/Blick_%C3%BCber_Cheung_Chau.JPG/960px-Blick_%C3%BCber_Cheung_Chau.JPG" },
+
+  // --- Mua sắm ---
+  { cat: "shop", name: "Sneakers Street", zh: "波鞋街", lat: 22.3191, lng: 114.1726, area: "Mong Kok",
+    note: "Phố toàn shop giày (Fa Yuen St).", time: "Chiều", mtr: "Mong Kok (exit D3)",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/ef/Fa_Yuen_Street_201405.jpg/960px-Fa_Yuen_Street_201405.jpg" },
+  { cat: "shop", name: "Harbour City", zh: "海港城", lat: 22.2965, lng: 114.1684, area: "Tsim Sha Tsui",
+    note: "Mall lớn nhất HK, sát bến Star Ferry.", time: "Bất kỳ", mtr: "Tsim Sha Tsui",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/9f/Harbour_City_Overview_2011.jpg/960px-Harbour_City_Overview_2011.jpg" },
+  { cat: "shop", name: "K11 Musea", zh: "K11 MUSEA", lat: 22.2944, lng: 114.1744, area: "Tsim Sha Tsui",
+    note: "Mall kiêm bảo tàng nghệ thuật, kiến trúc rất đẹp.", time: "Bất kỳ", mtr: "East TST",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c7/Victoria_Dockside_202007.jpg/960px-Victoria_Dockside_202007.jpg" },
+  { cat: "shop", name: "Causeway Bay / Times Square", zh: "銅鑼灣 · 時代廣場", lat: 22.2782, lng: 114.1822, area: "Causeway Bay",
+    note: "Khu mua sắm sầm uất nhất đảo HK, SOGO, Hysan Place.", time: "Tối", mtr: "Causeway Bay",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/44/Times_Square%2C_Hong_Kong.jpg/960px-Times_Square%2C_Hong_Kong.jpg" },
+  { cat: "shop", name: "Lee Tung Avenue", zh: "利東街", lat: 22.2755, lng: 114.1722, area: "Wan Chai",
+    note: "Phố đi bộ kiểu châu Âu, treo đèn lồng dịp lễ.", time: "Tối", mtr: "Wan Chai (exit A3)",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/ad/Leetungst.jpg/960px-Leetungst.jpg" },
+
+  // --- Chợ ---
+  { cat: "market", name: "Temple Street Night Market", zh: "廟街夜市", lat: 22.3062, lng: 114.1700, area: "Jordan",
+    note: "Chợ đêm, đồ ăn vặt, xem bói. Nhớ trả giá.", time: "Sau 19h", mtr: "Jordan (exit A)",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a6/GateOfTempleInHongKong.jpg/960px-GateOfTempleInHongKong.jpg" },
+  { cat: "market", name: "Ladies' Market", zh: "女人街", lat: 22.3187, lng: 114.1709, area: "Mong Kok",
+    note: "Chợ quần áo, quà lưu niệm giá rẻ. Trả giá 30–50%.", time: "Chiều tối", mtr: "Mong Kok (exit E2)",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b2/Tung_Choi_Street_201705.JPG/960px-Tung_Choi_Street_201705.JPG" },
+  { cat: "market", name: "Goldfish Market", zh: "金魚街", lat: 22.3212, lng: 114.1711, area: "Mong Kok",
+    note: "Cả con phố treo túi cá vàng, chụp ảnh lạ mắt.", time: "Chiều", mtr: "Prince Edward",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/3b/HK_MK_%E6%97%BA%E8%A7%92_Mongkok_%E5%BC%BC%E8%A1%97_Bute_Street_aquarium_shop_%E9%80%9A%E8%8F%9C%E8%A1%97_Tung_Choi_Street_plastic_bags_goldenfish_market_September_2021_SS2_02.jpg/960px-HK_MK_%E6%97%BA%E8%A7%92_Mongkok_%E5%BC%BC%E8%A1%97_Bute_Street_aquarium_shop_%E9%80%9A%E8%8F%9C%E8%A1%97_Tung_Choi_Street_plastic_bags_goldenfish_market_September_2021_SS2_02.jpg" },
+  { cat: "market", name: "Apliu Street (Sham Shui Po)", zh: "鴨寮街", lat: 22.3297, lng: 114.1622, area: "Sham Shui Po",
+    note: "Chợ đồ điện tử, đồ cũ. Sham Shui Po là khu 'HK local' nhất, nhiều đồ ăn ngon rẻ.", time: "Chiều", mtr: "Sham Shui Po",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/fe/Apliu_Street_201506.jpg/960px-Apliu_Street_201506.jpg" },
+  { cat: "market", name: "Stanley Market", zh: "赤柱市集", lat: 22.2186, lng: 114.2108, area: "Stanley",
+    note: "Chợ ven biển phía nam đảo, combo với Repulse Bay. Bus 6/6X/260 từ Central.", time: "Cả buổi", mtr: "Bus từ Central",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/11/Stanley_Market_View1_201007.jpg/960px-Stanley_Market_View1_201007.jpg" },
+
+  // --- Ăn uống ---
+  { cat: "food", name: "Tim Ho Wan (Sham Shui Po)", zh: "添好運", lat: 22.3307, lng: 114.1618, area: "Sham Shui Po",
+    note: "Dimsum sao Michelin giá rẻ. Phải gọi bánh bao xá xíu nướng.", time: "Sáng", mtr: "Sham Shui Po",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/2a/Tim_Ho_Wan_restaurant_at_Sham_Shui_Po_%2820190126130901%29.jpg/960px-Tim_Ho_Wan_restaurant_at_Sham_Shui_Po_%2820190126130901%29.jpg" },
+  { cat: "food", name: "Australia Dairy Company", zh: "澳洲牛奶公司", lat: 22.3047, lng: 114.1712, area: "Jordan",
+    note: "Cha chaan teng huyền thoại: trứng chưng sữa, bánh mì trứng bác. Phục vụ siêu nhanh & cục — đó là đặc sản.", time: "Sáng", mtr: "Jordan (exit C2)",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/39/Australia_Dairy_Company_outlook.JPG/960px-Australia_Dairy_Company_outlook.JPG" },
+  { cat: "food", name: "Kam's Roast Goose", zh: "甘牌燒鵝", lat: 22.2773, lng: 114.1748, area: "Wan Chai",
+    note: "Ngỗng quay sao Michelin. Hay xếp hàng, đi giờ lệch.", time: "Trưa sớm", mtr: "Wan Chai (exit A4)",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/03/Food_%E7%94%98%E7%89%8C%E7%87%92%E9%B4%A8%E9%9B%99%E6%8B%BC%E9%A3%AF%2C_%E7%94%98%E7%89%8C%E7%87%92%E5%91%B3%2C_%E7%94%98%E7%89%8C%E7%87%92%E9%B5%9D%2C_Kam%27s_Roast%2C_%E5%8F%B0%E5%8C%97101%2C_%E5%8F%B0%E5%8C%97%2C_%E5%8F%B0%E7%81%A3%2C_Taipei%2C_Taiwan_%2846542572844%29.jpg/960px-Food_%E7%94%98%E7%89%8C%E7%87%92%E9%B4%A8%E9%9B%99%E6%8B%BC%E9%A3%AF%2C_%E7%94%98%E7%89%8C%E7%87%92%E5%91%B3%2C_%E7%94%98%E7%89%8C%E7%87%92%E9%B5%9D%2C_Kam%27s_Roast%2C_%E5%8F%B0%E5%8C%97101%2C_%E5%8F%B0%E5%8C%97%2C_%E5%8F%B0%E7%81%A3%2C_Taipei%2C_Taiwan_%2846542572844%29.jpg" },
+  { cat: "food", name: "Kau Kee", zh: "九記牛腩", lat: 22.2846, lng: 114.1516, area: "Central (Gough St)",
+    note: "Mì nạm bò / gân bò cà ri nổi tiếng. Chủ nhật nghỉ.", time: "Trưa", mtr: "Sheung Wan",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d1/Kau_Kee_Restaurant.JPG/960px-Kau_Kee_Restaurant.JPG" },
+  { cat: "food", name: "Mak's Noodle", zh: "麥奀雲吞麵世家", lat: 22.2842, lng: 114.1541, area: "Central",
+    note: "Mì hoành thánh trứ danh, tô nhỏ — ăn thêm chỗ khác.", time: "Trưa", mtr: "Central (exit D2)",
+    img: "https://upload.wikimedia.org/wikipedia/commons/c/c8/Maks3.jpg" },
+  { cat: "food", name: "Lan Kwai Fong", zh: "蘭桂坊", lat: 22.2808, lng: 114.1555, area: "Central",
+    note: "Phố bar / nightlife. Tối thứ 6–7 đông vui nhất.", time: "Đêm", mtr: "Central (exit D2)",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/4b/LKF_Street_View01.jpg/960px-LKF_Street_View01.jpg" },
+
+  // --- Cafe & bánh ---
+  { cat: "cafe", name: "Mido Café", zh: "美都餐室", lat: 22.3083, lng: 114.1704, area: "Yau Ma Tei",
+    note: "Quán cà phê kiểu HK từ 1950, gạch men retro, view ra Temple Street.", time: "Chiều", mtr: "Yau Ma Tei",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/84/Mido_Cafe%2C_Temple_Street_in_August_2022.jpg/960px-Mido_Cafe%2C_Temple_Street_in_August_2022.jpg" },
+  { cat: "cafe", name: "Lan Fong Yuen", zh: "蘭芳園", lat: 22.2835, lng: 114.1541, area: "Central",
+    note: "Ông tổ trà sữa 'vớ lụa' HK + bánh mì chảo.", time: "Sáng", mtr: "Central",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/89/HK_%E4%B8%AD%E7%92%B0_Central_%E7%B5%90%E5%BF%97%E8%A1%97_Gage_Street_shop_Lan_Fong_Yuen_Cafe_Restaurant_March_2021_SS2.jpg/960px-HK_%E4%B8%AD%E7%92%B0_Central_%E7%B5%90%E5%BF%97%E8%A1%97_Gage_Street_shop_Lan_Fong_Yuen_Cafe_Restaurant_March_2021_SS2.jpg" },
+  { cat: "cafe", name: "Tai Cheong Bakery", zh: "泰昌餅家", lat: 22.2834, lng: 114.1537, area: "Central",
+    note: "Tart trứng nổi tiếng (Lyndhurst Terrace), mua ăn khi còn nóng.", time: "Bất kỳ", mtr: "Central",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f5/Tai_Cheong_Bakery_%28Hong_Kong%29.jpg/960px-Tai_Cheong_Bakery_%28Hong_Kong%29.jpg" },
+
+  // --- Giải trí ---
+  { cat: "fun", name: "Ngong Ping 360", zh: "昂坪360", lat: 22.2889, lng: 113.9414, area: "Tung Chung",
+    note: "Cáp treo 25 phút lên Big Buddha. Chọn cabin Crystal (sàn kính) nếu dám. Mua vé online trước.", time: "Sáng sớm", mtr: "Tung Chung (exit B)",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/ad/Ngong_Ping_360_Cable_Car_and_HKG_2021-09.jpg/960px-Ngong_Ping_360_Cable_Car_and_HKG_2021-09.jpg" },
+  { cat: "fun", name: "Hong Kong Disneyland", zh: "香港迪士尼樂園", lat: 22.3129, lng: 114.0413, area: "Lantau",
+    note: "Có World of Frozen độc quyền. Cả ngày.", time: "Cả ngày", mtr: "Disneyland Resort",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/8e/Hong_Kong_Disneyland_Castle.jpg/960px-Hong_Kong_Disneyland_Castle.jpg" },
+  { cat: "fun", name: "Ocean Park", zh: "海洋公園", lat: 22.2466, lng: 114.1758, area: "Aberdeen",
+    note: "Công viên giải trí + thuỷ cung, cáp treo nhìn ra biển, có gấu trúc.", time: "Cả ngày", mtr: "Ocean Park",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/0b/Ocean_Park_Hong_Kong.jpg/960px-Ocean_Park_Hong_Kong.jpg" },
+
+  // --- Lưu trú & di chuyển (thêm khách sạn của mày vào đây) ---
+  { cat: "stay", name: "Sân bay HKIA", zh: "香港國際機場", lat: 22.3080, lng: 113.9185, area: "Chek Lap Kok",
+    note: "Airport Express → Hong Kong station ~24 phút. Mua thẻ Octopus ngay ở sân bay, dùng cho MTR, bus, 7-Eleven.", time: "", mtr: "Airport Express",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/7c/Hong_Kong_International_Airport_Terminal_2.jpg/960px-Hong_Kong_International_Airport_Terminal_2.jpg" },
+  { cat: "stay", name: "AMU Dreamhouse", zh: "Hostel", lat: 22.2979, lng: 114.1753, area: "Tsim Sha Tsui",
+    note: "Chỗ ở. Từ sân bay: bus A21 đi thẳng về Nathan Rd (TST) ~1 tiếng, hoặc Airport Express → Kowloon rồi taxi ngắn.", time: "", mtr: "Tsim Sha Tsui / East TST",
+    url: "https://maps.app.goo.gl/wX2rtSgDJ4HtQk5r9" },
+  // Thêm điểm: { cat: "...", name: "", zh: "", lat: 22.xxx, lng: 114.xxx, area: "", note: "", time: "", mtr: "", url: "link Google Maps (tuỳ chọn)", img: "link ảnh (tuỳ chọn)" },
+];
+// ============================================================
+
+const store = {
+  get() { try { return JSON.parse(localStorage.getItem("visited:" + TRIP_KEY)) || {}; } catch { return {}; } },
+  set(v) { try { localStorage.setItem("visited:" + TRIP_KEY, JSON.stringify(v)); } catch {} },
+};
+let visited = store.get();
+const activeCats = new Set(); // rỗng = hiện tất cả
+const idOf = p => p.name;
+
+const map = L.map("map", { zoomControl: true, maxZoom: 16 }).setView([22.30, 114.12], 11);
+// Nền xám trơn, chỉ để biết điểm nằm phía nào. Tile từ zoom 15 trở lên có tên đường
+// nên giữ ở 14 rồi phóng to.
+L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}", {
+  maxNativeZoom: 14, maxZoom: 16,
+  attribution: "Tiles &copy; Esri",
+}).addTo(map);
+
+// Nhãn khu vực tự đặt: vùng lớn luôn hiện, khu nhỏ hiện khi zoom gần
+const REGIONS = [
+  ["HONG KONG ISLAND", "香港島", 22.252, 114.185],
+  ["KOWLOON", "九龍", 22.325, 114.180],
+  ["NEW TERRITORIES", "新界", 22.410, 114.130],
+  ["LANTAU ISLAND", "大嶼山", 22.265, 113.960],
+];
+const DISTRICTS = [
+  ["Central", 22.281, 114.158], ["Sheung Wan", 22.2865, 114.149], ["Wan Chai", 22.276, 114.173],
+  ["Causeway Bay", 22.281, 114.186], ["Quarry Bay", 22.287, 114.216], ["The Peak", 22.266, 114.152],
+  ["Aberdeen", 22.249, 114.156], ["Stanley", 22.215, 114.214], ["Kennedy Town", 22.280, 114.128],
+  ["Tsim Sha Tsui", 22.298, 114.173], ["Jordan", 22.305, 114.172], ["Mong Kok", 22.319, 114.168],
+  ["Sham Shui Po", 22.331, 114.160], ["West Kowloon", 22.304, 114.158], ["Wong Tai Sin", 22.344, 114.196],
+  ["Sai Kung", 22.384, 114.275], ["Tung Chung", 22.287, 113.945],
+];
+const areaLabel = (html, cls, lat, lng) =>
+  L.marker([lat, lng], { interactive: false, keyboard: false, icon: L.divIcon({ className: cls, html: `<div>${html}</div>`, iconSize: null }) });
+const regionLayer = L.layerGroup(REGIONS.map(([en, zh, lat, lng]) =>
+  areaLabel(`${en}<small>${zh}</small>`, "region", lat, lng))).addTo(map);
+const districtLayer = L.layerGroup(DISTRICTS.map(([n, lat, lng]) => areaLabel(n, "district", lat, lng)));
+areaLabel("Victoria Harbour", "water", 22.291, 114.185).addTo(map);
+
+const gmaps = p => p.url || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.name + " Hong Kong")}`;
+const gdir  = p => `https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}`;
+
+// zoom từ mức này trở lên thì ghim to ra và hiện ảnh bên trong
+const PHOTO_ZOOM = 14;
+const isBig = () => map.getZoom() >= PHOTO_ZOOM;
+const labelOffset = big => big ? [34, -41] : [12, -21];
+
+const markers = new Map();
+PLACES.forEach(p => {
+  const c = CATEGORIES[p.cat];
+  const m = L.marker([p.lat, p.lng], { icon: pinIcon(p) })
+    .bindTooltip(p.name, { permanent: true, direction: "right", offset: labelOffset(isBig()), className: p.cat === "stay" ? "lbl keep" : "lbl" })
+    .bindPopup(`<div class="pop">
+      ${p.img ? `<img class="photo" src="${p.img}" alt="">` : ""}
+      <h3>${c.emoji} ${p.name}</h3>
+      <div class="zh">${p.zh || ""}${p.area ? " · " + p.area : ""}</div>
+      <p>${p.note || ""}</p>
+      <div class="meta">${p.time ? "🕒 " + p.time : ""}${p.time && p.mtr ? " &nbsp;·&nbsp; " : ""}${p.mtr ? "🚇 " + p.mtr : ""}</div>
+      <div class="links"><a href="${gmaps(p)}" target="_blank" rel="noopener">Google Maps</a><a class="alt" href="${gdir(p)}" target="_blank" rel="noopener">Chỉ đường</a></div>
+    </div>`, { maxWidth: 280, minWidth: 260 });
+  markers.set(idOf(p), m);
+});
+
+function pinIcon(p) {
+  const c = CATEGORIES[p.cat];
+  const big = isBig(), s = big ? 58 : 30;
+  const inner = big && p.img ? `<img src="${p.img}" alt="" loading="lazy">` : `<span>${c.emoji}</span>`;
+  return L.divIcon({
+    className: "",
+    html: `<div class="pin ${big ? "big" : ""} ${visited[idOf(p)] ? "done" : ""}" style="--c:${c.color}">${inner}</div>`,
+    // ghim là hình vuông xoay 45°, mũi nhọn nằm dưới tâm s/√2
+    iconSize: [s, s], iconAnchor: [s / 2, Math.round(s * 1.207)], popupAnchor: [0, -s],
+  });
+}
+
+let pinsBig = false;
+function updatePins() {
+  if (isBig() === pinsBig) return;
+  pinsBig = isBig();
+  markers.forEach((m, id) => {
+    m.setIcon(pinIcon(PLACES.find(p => idOf(p) === id)));
+    m.getTooltip().options.offset = labelOffset(pinsBig);
+    m.getTooltip().update();
+  });
+}
+
+function updateLabels() {
+  const z = map.getZoom();
+  map.getContainer().classList.toggle("hide-labels", z < 13);
+  z >= 13 ? districtLayer.addTo(map) : districtLayer.remove();
+}
+map.on("zoomend", updateLabels);
+map.on("zoomend", updatePins);
+updateLabels();
+
+// --- sidebar ---
+const $ = id => document.getElementById(id);
+
+$("chips").innerHTML = `<button class="chip" data-cat="">Tất cả</button>` +
+  Object.entries(CATEGORIES).map(([k, c]) =>
+    `<button class="chip" data-cat="${k}">${c.emoji} ${c.label}</button>`).join("");
+$("chips").addEventListener("click", e => {
+  const b = e.target.closest(".chip"); if (!b) return;
+  const k = b.dataset.cat;
+  if (!k) activeCats.clear();
+  else activeCats.has(k) ? activeCats.delete(k) : activeCats.add(k);
+  render();
+});
+$("q").addEventListener("input", render);
+$("hideDone").addEventListener("change", render);
+
+function matches(p) {
+  const q = $("q").value.trim().toLowerCase();
+  if (activeCats.size && !activeCats.has(p.cat)) return false;
+  if ($("hideDone").checked && visited[idOf(p)]) return false;
+  if (!q) return true;
+  return [p.name, p.zh, p.area, p.note, p.mtr].join(" ").toLowerCase().includes(q);
+}
+
+function render() {
+  document.querySelectorAll(".chip").forEach(b => b.setAttribute("aria-pressed",
+    b.dataset.cat ? activeCats.has(b.dataset.cat) : activeCats.size === 0));
+  const shown = PLACES.filter(matches);
+  markers.forEach((m, id) => {
+    const p = PLACES.find(x => idOf(x) === id);
+    shown.includes(p) ? m.addTo(map) : m.remove();
+  });
+
+  $("list").innerHTML = Object.entries(CATEGORIES).map(([k, c]) => {
+    const items = shown.filter(p => p.cat === k);
+    if (!items.length) return "";
+    return `<div class="group"><h2>${c.emoji} ${c.label} · ${items.length}</h2>${items.map(p => `
+      <div class="item ${visited[idOf(p)] ? "done" : ""}" data-id="${idOf(p)}">
+        ${p.img
+          ? `<div class="thumb"><img src="${p.img}" alt="" loading="lazy"><span>${c.emoji}</span></div>`
+          : `<div class="dot" style="--c:${c.color}33">${c.emoji}</div>`}
+        <div><b>${p.name}</b><div class="sub">${p.zh || ""}${p.area ? " · " + p.area : ""}</div></div>
+        <input type="checkbox" title="Đã đi" ${visited[idOf(p)] ? "checked" : ""}>
+      </div>`).join("")}</div>`;
+  }).join("") || `<p style="padding:16px;color:var(--muted)">Không có địa điểm nào khớp.</p>`;
+  $("list").insertAdjacentHTML("beforeend", `<div class="credit">Ảnh: Wikipedia / Wikimedia Commons</div>`);
+
+  const done = PLACES.filter(p => visited[idOf(p)]).length;
+  $("progress").textContent = `${PLACES.length} địa điểm · đã đi ${done}`;
+  $("bar").style.width = (done / PLACES.length * 100) + "%";
+}
+
+$("list").addEventListener("click", e => {
+  const row = e.target.closest(".item"); if (!row) return;
+  const id = row.dataset.id;
+  if (e.target.matches("input[type=checkbox]")) {
+    e.target.checked ? (visited[id] = true) : delete visited[id];
+    store.set(visited);
+    markers.get(id).setIcon(pinIcon(PLACES.find(p => idOf(p) === id)));
+    render();
+    return;
+  }
+  const m = markers.get(id);
+  map.flyTo(m.getLatLng(), Math.max(map.getZoom(), 15), { duration: 0.6 });
+  map.once("moveend", () => m.openPopup());
+  if (innerWidth <= 768) scrollTo({ top: 0, behavior: "smooth" });
+});
+
+// --- export KML để import vào Google My Maps ---
+$("kml").addEventListener("click", () => {
+  const esc = s => String(s || "").replace(/[<>&]/g, ch => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[ch]));
+  const folders = Object.entries(CATEGORIES).map(([k, c]) => {
+    const pts = PLACES.filter(p => p.cat === k);
+    if (!pts.length) return "";
+    return `<Folder><name>${esc(c.emoji + " " + c.label)}</name>${pts.map(p => `
+      <Placemark><name>${esc(p.name)}</name>
+        <description>${esc([p.zh, p.note, p.time && "Giờ đẹp: " + p.time, p.mtr && "MTR: " + p.mtr].filter(Boolean).join("\n"))}</description>
+        <Point><coordinates>${p.lng},${p.lat},0</coordinates></Point></Placemark>`).join("")}</Folder>`;
+  }).join("");
+  const kml = `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>Hong Kong</name>${folders}</Document></kml>`;
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([kml], { type: "application/vnd.google-earth.kml+xml" }));
+  a.download = "hongkong.kml";
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+
+render();
+</script>
+</body>
+</html>

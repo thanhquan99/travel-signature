@@ -1,0 +1,541 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Korea Trip Map</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+  :root {
+    --bg: #f6f5f2;
+    --panel: #ffffff;
+    --text: #1d1d1f;
+    --muted: #6b6b70;
+    --line: #e4e2dd;
+    --accent: #0047a0;
+    --chip: #efede8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #141416; --panel: #1c1c1f; --text: #f2f2f2; --muted: #9a9aa0;
+      --line: #2e2e33; --accent: #4d8dff; --chip: #2a2a2f;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #141416; --panel: #1c1c1f; --text: #f2f2f2; --muted: #9a9aa0;
+    --line: #2e2e33; --accent: #4d8dff; --chip: #2a2a2f;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--bg); color: var(--text);
+    font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    display: grid; grid-template-columns: 380px 1fr; height: 100vh;
+  }
+
+  aside { background: var(--panel); border-right: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
+  header { padding: 18px 16px 12px; border-bottom: 1px solid var(--line); }
+  h1 { margin: 0; font-size: 20px; letter-spacing: -0.01em; }
+  h1 small { font-weight: 500; color: var(--muted); font-size: 14px; margin-left: 6px; }
+  .progress { margin-top: 6px; color: var(--muted); font-size: 13px; }
+  .bar { height: 4px; background: var(--chip); border-radius: 2px; margin-top: 6px; overflow: hidden; }
+  .bar > i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .3s; }
+
+  .controls { padding: 12px 16px; border-bottom: 1px solid var(--line); display: grid; gap: 10px; }
+  input[type=search] {
+    width: 100%; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--line);
+    background: var(--bg); color: var(--text); font: inherit;
+  }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    border: 1px solid transparent; background: var(--chip); color: var(--text);
+    padding: 5px 10px; border-radius: 999px; font: inherit; font-size: 13px; cursor: pointer;
+  }
+  .chip[aria-pressed="true"] { background: var(--accent); color: #fff; }
+  .row { display: flex; gap: 8px; align-items: center; justify-content: space-between; font-size: 13px; color: var(--muted); }
+  .row label { display: flex; gap: 6px; align-items: center; cursor: pointer; }
+  .btn {
+    border: 1px solid var(--line); background: var(--panel); color: var(--text);
+    padding: 6px 10px; border-radius: 8px; font: inherit; font-size: 13px; cursor: pointer;
+  }
+  .cities { display: flex; gap: 6px; margin-top: 10px; }
+  .cities .btn { flex: 1; white-space: nowrap; padding: 6px 8px; }
+  .cities .btn:last-child { flex: 0 0 auto; }
+  .cities .btn .ko { color: var(--muted); }
+  .cities .btn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .cities .btn[aria-pressed="true"] .ko { color: inherit; opacity: .8; }
+
+  #list { overflow-y: auto; flex: 1; padding: 4px 0 24px; }
+  .group h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 16px 16px 6px; }
+  .item { display: grid; grid-template-columns: 56px 1fr auto; gap: 12px; padding: 8px 16px; cursor: pointer; align-items: center; }
+  .thumb { position: relative; width: 56px; height: 56px; }
+  .thumb img { width: 100%; height: 100%; object-fit: cover; border-radius: 10px; display: block; background: var(--chip); }
+  .thumb span {
+    position: absolute; right: -4px; bottom: -4px; width: 22px; height: 22px; border-radius: 50%;
+    background: var(--panel); display: grid; place-items: center; font-size: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.25);
+  }
+  .item .dot { margin: 0 auto; }
+  .item.done .thumb img { filter: grayscale(1); opacity: .6; }
+  .credit { padding: 8px 16px 16px; font-size: 11px; color: var(--muted); }
+  .item:hover { background: var(--bg); }
+  .item .dot { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-size: 15px; background: var(--c); }
+  .item b { display: block; font-weight: 600; }
+  .item .sub { color: var(--muted); font-size: 12.5px; }
+  .item.done b { text-decoration: line-through; color: var(--muted); }
+  .item input { margin-top: 6px; width: 17px; height: 17px; accent-color: var(--accent); }
+
+  #map { height: 100%; min-height: 0; }
+
+  .pin {
+    width: 30px; height: 30px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg);
+    background: var(--c); border: 2px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,.35);
+    display: grid; place-items: center;
+  }
+  .pin span { transform: rotate(45deg); font-size: 14px; }
+  .pin.done { filter: grayscale(1); opacity: .6; }
+  .pin.big { width: 58px; height: 58px; border-width: 3px; }
+  .pin.big span { font-size: 22px; }
+  .pin.big img { width: 46px; height: 46px; border-radius: 50%; object-fit: cover; transform: rotate(45deg); border: 2px solid #fff; box-sizing: border-box; }
+  .leaflet-tooltip.lbl {
+    background: transparent; border: 0; box-shadow: none; padding: 0;
+    font-weight: 600; font-size: 12px; color: #222;
+    text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 0 3px #fff;
+  }
+  .leaflet-tooltip.lbl::before { display: none; }
+  .hide-labels .leaflet-tooltip.lbl:not(.keep) { display: none; }
+  .leaflet-tooltip.lbl.keep { font-size: 13px; }
+  .region, .district, .water { pointer-events: none; white-space: nowrap; }
+  .region > div, .district > div, .water > div { transform: translate(-50%, -50%); }
+  .region {
+    font-weight: 700; font-size: 13px; letter-spacing: .14em; color: #8a8f98; text-align: center;
+    text-shadow: 0 0 3px #fff, 0 0 3px #fff;
+  }
+  .region small { display: block; font-size: 11px; letter-spacing: .1em; font-weight: 500; }
+  .district { font-size: 11.5px; font-weight: 600; color: #9aa0a8; text-shadow: 0 0 3px #fff, 0 0 3px #fff; }
+  .water { font-size: 12px; font-style: italic; color: #7fa7c9; letter-spacing: .05em; }
+
+  .pop .photo { display: block; width: 100%; height: 150px; object-fit: cover; border-radius: 8px; margin-bottom: 10px; background: #eee; }
+  .pop h3 { margin: 0 0 2px; font-size: 15px; }
+  .pop .ko { color: #777; font-size: 13px; }
+  .pop p { margin: 8px 0; }
+  .pop .meta { font-size: 12px; color: #555; }
+  .pop .links { display: flex; gap: 6px; margin-top: 8px; }
+  .pop .links a {
+    flex: 1; text-align: center; padding: 6px 8px; border-radius: 8px; text-decoration: none;
+    background: #1a73e8; color: #fff; font-weight: 600; font-size: 12px;
+  }
+  .pop .links a.naver { background: #03c75a; }
+  .pop .links a.alt { background: #eef3fd; color: #1a73e8; }
+
+  @media (max-width: 768px) {
+    body { grid-template-columns: 1fr; grid-template-rows: 55vh 1fr; }
+    #map { grid-row: 1; }
+    aside { grid-row: 2; border-right: 0; border-top: 1px solid var(--line); }
+    header { padding: 12px 16px 8px; }
+  }
+</style>
+</head>
+<body>
+<aside>
+  <header>
+    <h1>Hàn Quốc <small>한국</small></h1>
+    <div class="progress" id="progress"></div>
+    <div class="bar"><i id="bar"></i></div>
+    <div class="cities" id="cities"></div>
+  </header>
+  <div class="controls">
+    <input type="search" id="q" placeholder="Tìm địa điểm, khu vực, món ăn…">
+    <div class="chips" id="chips"></div>
+    <div class="row">
+      <label><input type="checkbox" id="hideDone"> Ẩn chỗ đã đi</label>
+      <button class="btn" id="kml" title="Import vào Google My Maps">Tải KML</button>
+    </div>
+  </div>
+  <div id="list"></div>
+</aside>
+<div id="map"></div>
+
+<script>
+// ============================================================
+//  DỮ LIỆU — sửa / thêm địa điểm ở đây.
+//  Lấy toạ độ: Google Maps → chuột phải vào điểm → click dòng số đầu tiên để copy.
+//  city: "seoul" | "busan" — dùng cho nút nhảy nhanh giữa các thành phố.
+//  Ở Hàn, Google Maps không chỉ đường đi bộ / lái xe — dùng Naver Map hoặc KakaoMap.
+// ============================================================
+const TRIP_KEY = "korea";
+
+const CATEGORIES = {
+  view:    { label: "Tham quan",  emoji: "🏞️", color: "#2b6cb0" },
+  shop:    { label: "Mua sắm",    emoji: "🛍️", color: "#805ad5" },
+  market:  { label: "Chợ",        emoji: "🧺", color: "#2f855a" },
+  food:    { label: "Ăn uống",    emoji: "🍜", color: "#e53e3e" },
+  cafe:    { label: "Cafe & bánh", emoji: "☕", color: "#8a5a3b" },
+  fun:     { label: "Giải trí",   emoji: "🎢", color: "#dd6b20" },
+  stay:    { label: "Lưu trú & di chuyển", emoji: "🏨", color: "#111827" },
+};
+
+const CITIES = {
+  seoul: { label: "Seoul", ko: "서울" },
+  busan: { label: "Busan", ko: "부산" },
+};
+
+const PLACES = [
+  // ===================== SEOUL =====================
+  // --- Tham quan (ngắm cảnh, văn hoá, check-in, thiên nhiên) ---
+  { city: "seoul", cat: "view", name: "N Seoul Tower", ko: "남산서울타워", lat: 37.5512, lng: 126.9883, area: "Namsan",
+    note: "View đêm đẹp nhất Seoul, khu khoá tình yêu. Lên bằng cáp treo Namsan hoặc đi bộ ~30 phút.", time: "Hoàng hôn → tối", metro: "Myeongdong (L4, exit 3) → cáp treo",
+    img: "https://upload.wikimedia.org/wikipedia/en/a/a6/NamsanTower_%28Cropped%29.jpeg" },
+  { city: "seoul", cat: "view", name: "Lotte World Tower · Seoul Sky", ko: "롯데월드타워 서울스카이", lat: 37.5125, lng: 127.1028, area: "Jamsil",
+    note: "Toà nhà cao nhất Hàn (555m), đài quan sát tầng 117–123 có sàn kính.", time: "Hoàng hôn", metro: "Jamsil (L2/L8)",
+    img: "https://thumb.wikimedia.org/wikipedia/en/thumb/2/28/Lotte_World_Tower_day_view_10.jpg/960px-Lotte_World_Tower_day_view_10.jpg" },
+  { city: "seoul", cat: "view", name: "Naksan Park", ko: "낙산공원", lat: 37.5805, lng: 127.0086, area: "Hyehwa",
+    note: "Đi dọc tường thành cổ ngắm hoàng hôn, miễn phí. Nối liền làng bích hoạ Ihwa.", time: "Hoàng hôn", metro: "Hyehwa (L4, exit 2)",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b0/%ED%95%9C%EC%96%91%EB%8F%84%EC%84%B1%EB%82%99%EC%82%B0%EA%B5%AC%EA%B0%84.jpg/960px-%ED%95%9C%EC%96%91%EB%8F%84%EC%84%B1%EB%82%99%EC%82%B0%EA%B5%AC%EA%B0%84.jpg" },
+  { city: "seoul", cat: "view", name: "Banpo Rainbow Fountain", ko: "반포대교 달빛무지개분수", lat: 37.5155, lng: 126.9960, area: "Banpo Hangang Park",
+    note: "Cầu phun nước cầu vồng có nhạc, xem từ công viên Banpo. Chỉ chạy khoảng tháng 4–10, vài suất mỗi tối — check lịch trước.", time: "Tối", metro: "Express Bus Terminal (L3/7/9)",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/76/2011%EB%85%84_11%EC%9B%94_%EB%8C%80%ED%95%9C%EB%AF%BC%EA%B5%AD_%EC%84%9C%EC%9A%B8%ED%8A%B9%EB%B3%84%EC%8B%9C_%EB%AA%85%EC%86%8C_%28Seoul_best_attractions%29_%EB%8B%AC%EB%B9%9B%EB%AC%B4%EC%A7%80%EA%B0%9C%EB%B6%84%EC%88%981.jpg/960px-2011%EB%85%84_11%EC%9B%94_%EB%8C%80%ED%95%9C%EB%AF%BC%EA%B5%AD_%EC%84%9C%EC%9A%B8%ED%8A%B9%EB%B3%84%EC%8B%9C_%EB%AA%85%EC%86%8C_%28Seoul_best_attractions%29_%EB%8B%AC%EB%B9%9B%EB%AC%B4%EC%A7%80%EA%B0%9C%EB%B6%84%EC%88%981.jpg" },
+
+  { city: "seoul", cat: "view", name: "Gyeongbokgung", ko: "경복궁", lat: 37.5799, lng: 126.9768, area: "Jongno",
+    note: "Cung điện lớn nhất. Mặc hanbok được vào cửa miễn phí. Lễ đổi gác 10:00 & 14:00. Nghỉ thứ Ba.", time: "Sáng", metro: "Gyeongbokgung (L3, exit 5)",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/63/%EA%B4%91%ED%99%94%EB%AC%B8_%EC%9B%94%EB%8C%80.jpg/960px-%EA%B4%91%ED%99%94%EB%AC%B8_%EC%9B%94%EB%8C%80.jpg" },
+  { city: "seoul", cat: "view", name: "Bukchon Hanok Village", ko: "북촌한옥마을", lat: 37.5831, lng: 126.9836, area: "Bukchon",
+    note: "Làng nhà hanok cổ giữa 2 cung điện. Người dân đang sống — giữ yên lặng; khu lõi chỉ cho khách vào 10:00–17:00.", time: "Sáng", metro: "Anguk (L3, exit 2)",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/2e/Bukchon_Hanok_Village_01.jpg/960px-Bukchon_Hanok_Village_01.jpg" },
+
+  { city: "seoul", cat: "view", name: "Ihwa Mural Village", ko: "이화벽화마을", lat: 37.5777, lng: 127.0047, area: "Hyehwa",
+    note: "Làng bích hoạ trên dốc, combo với Naksan Park. Người dân đang sống — giữ yên lặng.", time: "Chiều", metro: "Hyehwa (L4, exit 2)",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/ee/Ihwa_Mural_Village%2C_Ihwa-dong.jpg/960px-Ihwa_Mural_Village%2C_Ihwa-dong.jpg" },
+  { city: "seoul", cat: "view", name: "Cheonggyecheon", ko: "청계천", lat: 37.5690, lng: 126.9790, area: "Jongno",
+    note: "Suối giữa lòng phố dài ~11km, tối có đèn. Bắt đầu từ Cheonggye Plaza.", time: "Tối", metro: "Gwanghwamun (L5, exit 5)",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/4a/Cheonggyecheon_stream_at_sunrise_with_trees_in_Seoul.jpg/960px-Cheonggyecheon_stream_at_sunrise_with_trees_in_Seoul.jpg" },
+  { city: "seoul", cat: "view", name: "Starfield Library", ko: "별마당 도서관", lat: 37.5101, lng: 127.0600, area: "COEX, Gangnam",
+    note: "Kệ sách cao 13m giữa mall COEX — điểm check-in kinh điển. Miễn phí.", time: "Bất kỳ", metro: "Samseong (L2, exit 5/6)",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/47/Starfield_Library.jpg/960px-Starfield_Library.jpg" },
+  { city: "seoul", cat: "view", name: "Starfield Library Suwon", ko: "스타필드 수원 별마당도서관", lat: 37.2875, lng: 126.9917, area: "Suwon (ngoài Seoul)",
+    note: "Bản 'xịn' hơn của Starfield Library COEX: kệ sách cao ~22m trải 4 tầng (tầng 4–7) trong mall Starfield Suwon. Đi ~1 tiếng từ Seoul, đáng nếu thích chụp ảnh. Miễn phí.", time: "Bất kỳ", metro: "Hwaseo (L1) → đi bộ" },
+  { city: "seoul", cat: "view", name: "Seongsu-dong", ko: "성수동", lat: 37.5442, lng: 127.0560, area: "Seongsu",
+    note: "'Brooklyn của Seoul': nhà máy cũ thành cafe, pop-up store, local brand. Combo với Seoul Forest.", time: "Chiều", metro: "Seongsu (L2, exit 3)",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d7/Evening_street_in_Seongsu-dong.jpg/960px-Evening_street_in_Seongsu-dong.jpg" },
+  { city: "seoul", cat: "view", name: "Ikseon-dong", ko: "익선동", lat: 37.5741, lng: 126.9897, area: "Jongno",
+    note: "Ngõ hanok cũ thành cafe, quán ăn xinh xắn.", time: "Chiều tối", metro: "Jongno 3-ga (L1/3/5, exit 4)",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/08/View_of_Ikseon-dong_from_National_Tax_Service_Jongno_District_Office.jpg/960px-View_of_Ikseon-dong_from_National_Tax_Service_Jongno_District_Office.jpg" },
+  { city: "seoul", cat: "view", name: "Gyeongui Line Forest Park", ko: "경의선숲길", lat: 37.5593, lng: 126.9248, area: "Yeonnam-dong",
+    note: "Đường ray cũ thành công viên dài, khu Yeonnam-dong nhiều cafe xinh.", time: "Chiều", metro: "Hongik Univ. (L2, exit 3)",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a5/Gyeonguiseon_Forest_Trail_Park_and_Ttaeng-ttaeng_Street_in_Seoul_%28near_Hongdae%2C_1%29.jpg/960px-Gyeonguiseon_Forest_Trail_Park_and_Ttaeng-ttaeng_Street_in_Seoul_%28near_Hongdae%2C_1%29.jpg" },
+
+  { city: "seoul", cat: "view", name: "Yeouido Hangang Park", ko: "여의도한강공원", lat: 37.5284, lng: 126.9346, area: "Yeouido",
+    note: "'Chill Hangang' chuẩn: trải thảm, gọi gà rán giao tận nơi, ăn ramyeon máy ở cửa hàng tiện lợi. Mùa xuân hoa anh đào.", time: "Chiều tối", metro: "Yeouinaru (L5, exit 2/3)" },
+  { city: "seoul", cat: "view", name: "Seoul Forest", ko: "서울숲", lat: 37.5446, lng: 127.0398, area: "Seongsu",
+    note: "Công viên lớn có đàn hươu, đi chung với Seongsu-dong.", time: "Chiều", metro: "Seoul Forest (Suin-Bundang, exit 3)",
+    img: "https://upload.wikimedia.org/wikipedia/commons/f/f5/SeoulForest.jpg" },
+  { city: "seoul", cat: "view", name: "Seokchon Lake", ko: "석촌호수", lat: 37.5089, lng: 127.1035, area: "Jamsil",
+    note: "Hồ ngay dưới chân Lotte World & Lotte Tower, vòng quanh hồ ~2,5km toàn cây anh đào — một trong những chỗ ngắm hoa đẹp nhất Seoul (đầu tháng 4). Tối lên đèn, view tháp Lotte phản chiếu mặt hồ.", time: "Đầu tháng 4 · chiều tối", metro: "Jamsil (L2/L8, exit 2/3)",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/86/%EC%84%9D%EC%B4%8C_%ED%98%B8%EC%88%98%EA%B3%B5%EC%9B%90_%281%29.jpg/960px-%EC%84%9D%EC%B4%8C_%ED%98%B8%EC%88%98%EA%B3%B5%EC%9B%90_%281%29.jpg" },
+  { city: "seoul", cat: "view", name: "Haneul Park", ko: "하늘공원", lat: 37.5677, lng: 126.8854, area: "Mapo",
+    note: "Đồi cỏ lau bạc, đẹp nhất tháng 10 (có lễ hội cỏ lau).", time: "Chiều", metro: "World Cup Stadium (L6, exit 1)",
+    img: "https://thumb.wikimedia.org/wikipedia/ko/thumb/7/7d/View_Photo_of_Winter_of_Worldcup_Park.jpg/960px-View_Photo_of_Winter_of_Worldcup_Park.jpg" },
+  { city: "seoul", cat: "view", name: "Nami Island", ko: "남이섬", lat: 37.7900, lng: 127.5258, area: "Gapyeong (ngoài Seoul)",
+    note: "Đảo hàng cây trong 'Bản tình ca mùa đông'. Đi ITX từ Yongsan / bus tour, mất nguyên ngày.", time: "Cả ngày", metro: "Gapyeong (ITX-Cheongchun) → bus/taxi",
+    img: "https://upload.wikimedia.org/wikipedia/commons/7/79/Nami_Island.JPG" },
+
+  // --- Mua sắm ---
+  { city: "seoul", cat: "shop", name: "Myeongdong", ko: "명동", lat: 37.5637, lng: 126.9840, area: "Myeongdong",
+    note: "Thiên đường mỹ phẩm (Olive Young, Daiso nhiều tầng), tối có street food.", time: "Chiều tối", metro: "Myeongdong (L4, exit 6)",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/32/%EB%AA%85%EB%8F%998%EA%B8%B8_%EA%B1%B0%EB%A6%AC_%282020.03%29.jpg/960px-%EB%AA%85%EB%8F%998%EA%B8%B8_%EA%B1%B0%EB%A6%AC_%282020.03%29.jpg" },
+  { city: "seoul", cat: "shop", name: "Hongdae", ko: "홍대", lat: 37.5563, lng: 126.9236, area: "Mapo",
+    note: "Khu sinh viên: busking, quần áo giá rẻ, photo booth, nightlife.", time: "Tối", metro: "Hongik Univ. (L2, exit 9)",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/79/Eoulmadangro_z.jpg/960px-Eoulmadangro_z.jpg" },
+  { city: "seoul", cat: "shop", name: "Garosu-gil", ko: "가로수길", lat: 37.5207, lng: 127.0229, area: "Sinsa, Gangnam",
+    note: "Phố hàng cây ngân hạnh, shop thiết kế, cafe. Mùa thu lá vàng rất đẹp.", time: "Chiều", metro: "Sinsa (L3, exit 8)",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/41/Garosu-gil.jpg/960px-Garosu-gil.jpg" },
+  { city: "seoul", cat: "shop", name: "Seongsu Yeonmujang-gil", ko: "성수 연무장길", lat: 37.5432, lng: 127.0535, area: "Seongsu",
+    note: "Con phố mua sắm chính của Seongsu: flagship local brand thời trang (Musinsa, Matin Kim, Ader Error…) và pop-up store đổi liên tục. Đi dọc phố + các hẻm nhánh từ ga Seongsu.", time: "Chiều (shop mở ~11–12h)", metro: "Seongsu (L2, exit 4)" },
+  { city: "seoul", cat: "shop", name: "Itaewon", ko: "이태원", lat: 37.5345, lng: 126.9945, area: "Yongsan",
+    note: "Khu quốc tế, nhà hàng đủ nước, bar, vintage shop.", time: "Tối", metro: "Itaewon (L6)",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/35/Itaewon_2.jpg/960px-Itaewon_2.jpg" },
+
+  // --- Chợ ---
+  { city: "seoul", cat: "market", name: "Dongdaemun Market", ko: "동대문시장", lat: 37.5704, lng: 127.0090, area: "Dongdaemun",
+    note: "Các toà nhà bán sỉ/lẻ thời trang, nhiều chỗ mở tới khuya.", time: "Tối khuya", metro: "Dongdaemun (L1/L4)",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/87/Korea-Seoul-Dongdaemun_Market-01.jpg/960px-Korea-Seoul-Dongdaemun_Market-01.jpg" },
+  { city: "seoul", cat: "market", name: "Namdaemun Market", ko: "남대문시장", lat: 37.5594, lng: 126.9774, area: "Jung-gu",
+    note: "Chợ truyền thống lâu đời nhất, đồ lưu niệm, hẻm mì kalguksu.", time: "Sáng / trưa", metro: "Hoehyeon (L4, exit 5)",
+    img: "https://upload.wikimedia.org/wikipedia/commons/1/1e/%EB%82%A8%EB%8C%80%EB%AC%B8_%EC%A4%91%EC%95%99%EB%A1%9C%EC%9D%98_%EC%9D%B4%EB%8F%99%EC%8B%9D_%EB%85%B8%EC%A0%90.jpg" },
+  { city: "seoul", cat: "market", name: "Gwangjang Market", ko: "광장시장", lat: 37.5700, lng: 126.9990, area: "Jongno",
+    note: "Chợ ăn uống: bánh đậu xanh bindaetteok, kimbap mayak, yukhoe (bò sống).", time: "Trưa / tối", metro: "Jongno 5-ga (L1, exit 8)",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/94/Gwangjang_Market%2C_Seoul_01.jpg/960px-Gwangjang_Market%2C_Seoul_01.jpg" },
+  { city: "seoul", cat: "market", name: "Noryangjin Fish Market", ko: "노량진수산시장", lat: 37.5152, lng: 126.9411, area: "Dongjak",
+    note: "Chọn hải sản tầng 1 rồi mang lên quán tầng 2 nhờ nấu (tính phí nấu). Sashimi, cua hoàng đế.", time: "Trưa / tối", metro: "Noryangjin (L1/L9)",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/7c/Korea-Seoul-Noryangjin_Fish_Market-03.jpg/960px-Korea-Seoul-Noryangjin_Fish_Market-03.jpg" },
+  { city: "seoul", cat: "market", name: "Mangwon Market", ko: "망원시장", lat: 37.5560, lng: 126.9063, area: "Mapo",
+    note: "Chợ local giá rẻ: gà rán, croquette, tteokbokki. Mua mang ra Hangang ăn.", time: "Trưa", metro: "Mangwon (L6, exit 2)",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e8/Mercado_Mangwon_en_Se%C3%BAl.jpg/960px-Mercado_Mangwon_en_Se%C3%BAl.jpg" },
+
+  // --- Ăn uống ---
+  { city: "seoul", cat: "food", name: "Tosokchon Samgyetang", ko: "토속촌 삼계탕", lat: 37.5779, lng: 126.9713, area: "Seochon",
+    note: "Gà hầm sâm nổi tiếng gần Gyeongbokgung, hay xếp hàng — đi giờ lệch.", time: "Trưa sớm", metro: "Gyeongbokgung (L3, exit 2)",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e8/Samgye-tang_2.jpg/960px-Samgye-tang_2.jpg" },
+  { city: "seoul", cat: "food", name: "Euljiro Nogari Alley", ko: "을지로 노가리골목", lat: 37.5662, lng: 126.9910, area: "Euljiro",
+    note: "Hẻm bia + khô cá nogari ngồi ghế nhựa ngoài đường. Khu 'Hipjiro' quanh đó nhiều bar ẩn.", time: "Tối", metro: "Euljiro 3-ga (L2/L3, exit 4)",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/28/Night_of_Euljiro_Alley.jpg/960px-Night_of_Euljiro_Alley.jpg" },
+  { city: "seoul", cat: "food", name: "Yumyeongsuk Chuncheon Dakgalbi", ko: "유명숙 춘천닭갈비", lat: 37.8040, lng: 127.5250, area: "Bến phà Nami (Gapyeong)",
+    note: "Ăn dakgalbi — gà xào cay chảo gang / nướng than, đặc sản vùng Chuncheon–Gapyeong — trước khi qua đảo. Ăn xong nhớ gọi cơm chiên (bokkeumbap) vét chảo. Cách bến phà ~5 phút; có hoá đơn ăn trong ngày được gửi xe miễn phí lúc đi đảo. (Ghim ước lượng theo địa chỉ 북한강변로 1037 — bấm Naver Map để tìm đúng quán.)", time: "Trưa, trước khi qua đảo", metro: "Gapyeong (ITX-Cheongchun) → bus/taxi ra bến phà",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/29/Chuncheon_sizzling_chicken_%28Dakgalbi%29.jpg/960px-Chuncheon_sizzling_chicken_%28Dakgalbi%29.jpg" },
+
+  // --- Giải trí ---
+  { city: "seoul", cat: "fun", name: "Lotte World", ko: "롯데월드", lat: 37.5110, lng: 127.0980, area: "Jamsil",
+    note: "Công viên giải trí trong nhà + lâu đài ngoài trời. Thuê đồng phục học sinh chụp ảnh.", time: "Cả ngày", metro: "Jamsil (L2/L8, exit 4)",
+    img: "https://thumb.wikimedia.org/wikipedia/en/thumb/b/be/Lotte_World_day_view_4_%28cropped%29.jpg/960px-Lotte_World_day_view_4_%28cropped%29.jpg" },
+
+  // --- Lưu trú & di chuyển (thêm khách sạn của mày vào đây) ---
+  { city: "seoul", cat: "stay", name: "Sân bay Incheon (ICN)", ko: "인천국제공항", lat: 37.4633, lng: 126.4400, area: "Incheon",
+    note: "AREX Express → ga Seoul 43 phút (tàu thường ~1 tiếng, rẻ hơn). Mua thẻ T-money / WOWPASS và eSIM ngay ở sân bay.", time: "", metro: "AREX",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/bc/%EC%9D%B8%EC%B2%9C%EA%B5%AD%EC%A0%9C%EA%B3%B5%ED%95%AD_%281472%29.jpeg/960px-%EC%9D%B8%EC%B2%9C%EA%B5%AD%EC%A0%9C%EA%B3%B5%ED%95%AD_%281472%29.jpeg" },
+  { city: "seoul", cat: "stay", name: "Ga Seoul", ko: "서울역", lat: 37.5532, lng: 126.9726, area: "Seoul Station",
+    note: "KTX đi Busan ~2h30. Đặt vé trên app Korail / letskorail.com.", time: "", metro: "Seoul Station (L1/L4/AREX)",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f0/Seoul-station-20181122-072342.jpg/960px-Seoul-station-20181122-072342.jpg" },
+
+  // ===================== BUSAN =====================
+  { city: "busan", cat: "view", name: "Haeundae Beach", ko: "해운대해수욕장", lat: 35.1585, lng: 129.1605, area: "Haeundae",
+    note: "Bãi biển nổi tiếng nhất Hàn, tối có phố ăn Haeundae Market gần đó.", time: "Bất kỳ", metro: "Haeundae (L2, exit 3)",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/ea/Haeundae_Beach_May_2024.jpg/960px-Haeundae_Beach_May_2024.jpg" },
+  { city: "busan", cat: "fun", name: "Blueline Park Sky Capsule", ko: "해운대 블루라인파크", lat: 35.1596, lng: 129.1716, area: "Haeundae (ga Mipo)",
+    note: "Toa tàu 2–4 người chạy trên cao ven vách biển Mipo → Cheongsapo. Đặt vé online sớm, hay hết.", time: "Sáng", metro: "Haeundae → đi bộ ra ga Mipo" },
+  { city: "busan", cat: "view", name: "Gwangalli Beach", ko: "광안리해수욕장", lat: 35.1542, lng: 129.1206, area: "Suyeong",
+    note: "View cầu Gwangan lên đèn. Tối thứ Bảy có show drone trên biển.", time: "Tối", metro: "Gwangan (L2, exit 3)",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/17/Gwangalli_Beach.jpg/960px-Gwangalli_Beach.jpg" },
+  { city: "busan", cat: "view", name: "Gamcheon Culture Village", ko: "감천문화마을", lat: 35.0970, lng: 129.0090, area: "Saha",
+    note: "'Santorini của Busan': nhà sơn màu trên sườn đồi, tượng Hoàng tử bé.", time: "Sáng", metro: "Toseong (L1, exit 6) → minibus 2/2-2",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/ee/Gamcheon_Houses%2C_2024.jpg/960px-Gamcheon_Houses%2C_2024.jpg" },
+  { city: "busan", cat: "market", name: "Jagalchi Market", ko: "자갈치시장", lat: 35.0967, lng: 129.0300, area: "Nampo",
+    note: "Chợ hải sản lớn nhất Hàn. Chọn ở tầng 1, lên tầng 2 ăn.", time: "Trưa", metro: "Jagalchi (L1, exit 10)",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d4/Jagalchi_Market_20200523_019.jpg/960px-Jagalchi_Market_20200523_019.jpg" },
+  { city: "busan", cat: "market", name: "Haeundae Market", ko: "해운대시장", lat: 35.1616, lng: 129.1624, area: "Haeundae",
+    note: "Hẻm chợ có mái che nằm bên trái phố đi bộ Gunam-ro, đi từ ga Haeundae ra biển ~3–4 phút. 'Hẻm lươn nướng': gomjangeo (lươn biển nướng muối/sốt cay), sò nướng, hải sản tươi. Quán hay được nhắc: Hyejane San Gomjangeo (số 18, 15:00–01:00, đặt Naver nhưng không nhận đặt trong ngày). Ăn vặt: tteokbokki & eomuk ở Sangguk-ine.", time: "Tối", metro: "Haeundae (L2, exit 3)",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/ca/Haeundae_Market_Busan_%2831877277538%29.jpg/960px-Haeundae_Market_Busan_%2831877277538%29.jpg" },
+  { city: "busan", cat: "cafe", name: "Gritvi Ilgwang", ko: "그릿비 일광", lat: 35.2730, lng: 129.2542, area: "Ilgwang, Gijang",
+    note: "Cafe view biển Gijang thoáng rộng, có terrace ngoài trời. Xa trung tâm — đi taxi từ Haeundae. Giờ mở khoảng 10:30–21:00 (nguồn ghi khác nhau); có trang ghi đã đóng cửa — check Instagram @greetvicoffee trước khi đi.", time: "Chiều / hoàng hôn", metro: "Ilgwang (Donghae Line) → taxi" },
+  { city: "busan", cat: "market", name: "BIFF Square & Gukje Market", ko: "BIFF광장 · 국제시장", lat: 35.0995, lng: 129.0280, area: "Nampo",
+    note: "Street food: ssiat hotteok (bánh nhân hạt), eomuk. Chợ Gukje ngay cạnh, mua đồ lặt vặt.", time: "Tối", metro: "Jagalchi / Nampo (L1)",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/8a/Gukje_Market%2C_October_2019_03.jpg/960px-Gukje_Market%2C_October_2019_03.jpg" },
+  { city: "busan", cat: "stay", name: "Ga Busan", ko: "부산역", lat: 35.1152, lng: 129.0414, area: "Dong-gu",
+    note: "KTX về Seoul ~2h30. Đối diện là phố Texas / Chinatown.", time: "", metro: "Busan Station (L1)",
+    img: "https://thumb.wikimedia.org/wikipedia/en/thumb/3/3e/Busan_Station.jpg/960px-Busan_Station.jpg" },
+  { city: "busan", cat: "stay", name: "Sân bay Gimhae (PUS)", ko: "김해국제공항", lat: 35.1795, lng: 128.9382, area: "Gangseo",
+    note: "Light rail Busan–Gimhae → Sasang rồi đổi L2.", time: "", metro: "BGL → Sasang (L2)",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/1b/Gimhae_International_Airport.jpg/960px-Gimhae_International_Airport.jpg" },
+
+  // Thêm điểm: { city: "seoul", cat: "...", name: "", ko: "", lat: 37.xxx, lng: 126.xxx, area: "", note: "", time: "", metro: "", url: "link Google/Naver Maps (tuỳ chọn)", img: "link ảnh (tuỳ chọn)" },
+];
+// ============================================================
+
+const store = {
+  get() { try { return JSON.parse(localStorage.getItem("visited:" + TRIP_KEY)) || {}; } catch { return {}; } },
+  set(v) { try { localStorage.setItem("visited:" + TRIP_KEY, JSON.stringify(v)); } catch {} },
+};
+let visited = store.get();
+const activeCats = new Set(); // rỗng = hiện tất cả
+const idOf = p => p.name;
+
+const map = L.map("map", { zoomControl: true, maxZoom: 16 });
+// Nền xám trơn, chỉ để biết điểm nằm phía nào. Ở Hàn, Esri chỉ có dữ liệu tới zoom 13
+// (zoom 14 là ô "Map data not yet available") nên giữ ở 13 rồi phóng to.
+L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}", {
+  maxNativeZoom: 13, maxZoom: 16,
+  attribution: "Tiles &copy; Esri",
+}).addTo(map);
+
+// Nhãn khu vực tự đặt: vùng lớn luôn hiện, khu nhỏ hiện khi zoom gần
+const REGIONS = [
+  ["GANGBUK", "강북", 37.600, 126.975],
+  ["GANGNAM", "강남", 37.490, 127.040],
+  ["BUSAN", "부산", 35.200, 129.060],
+];
+const DISTRICTS = [
+  ["Jongno", 37.5765, 126.986], ["Myeongdong", 37.561, 126.985], ["Hongdae", 37.553, 126.922],
+  ["Itaewon", 37.537, 126.991], ["Yeouido", 37.522, 126.925], ["Gangnam", 37.4985, 127.028],
+  ["Jamsil", 37.508, 127.090], ["Seongsu", 37.541, 127.056], ["Dongdaemun", 37.5715, 127.013],
+  ["Yongsan", 37.530, 126.970], ["Seochon", 37.579, 126.968], ["Euljiro", 37.565, 126.993],
+  ["Haeundae", 35.163, 129.158], ["Gwangalli", 35.156, 129.118], ["Nampo", 35.098, 129.033],
+  ["Seomyeon", 35.158, 129.060],
+];
+const areaLabel = (html, cls, lat, lng) =>
+  L.marker([lat, lng], { interactive: false, keyboard: false, icon: L.divIcon({ className: cls, html: `<div>${html}</div>`, iconSize: null }) });
+const regionLayer = L.layerGroup(REGIONS.map(([en, ko, lat, lng]) =>
+  areaLabel(`${en}<small>${ko}</small>`, "region", lat, lng))).addTo(map);
+const districtLayer = L.layerGroup(DISTRICTS.map(([n, lat, lng]) => areaLabel(n, "district", lat, lng)));
+areaLabel("Hangang 한강", "water", 37.522, 126.960).addTo(map);
+
+const gmaps = p => p.url || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.name + " Korea")}`;
+const naver = p => `https://map.naver.com/p/search/${encodeURIComponent(p.ko || p.name)}`;
+const gdir  = p => `https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}&travelmode=transit`;
+
+// zoom từ mức này trở lên thì ghim to ra và hiện ảnh bên trong
+const PHOTO_ZOOM = 14;
+const isBig = () => map.getZoom() >= PHOTO_ZOOM;
+const labelOffset = big => big ? [34, -41] : [12, -21];
+
+const markers = new Map();
+PLACES.forEach(p => {
+  const c = CATEGORIES[p.cat];
+  const m = L.marker([p.lat, p.lng], { icon: pinIcon(p) })
+    .bindTooltip(p.name, { permanent: true, direction: "right", offset: labelOffset(isBig()), className: p.cat === "stay" ? "lbl keep" : "lbl" })
+    .bindPopup(`<div class="pop">
+      ${p.img ? `<img class="photo" src="${p.img}" alt="">` : ""}
+      <h3>${c.emoji} ${p.name}</h3>
+      <div class="ko">${p.ko || ""}${p.area ? " · " + p.area : ""}</div>
+      <p>${p.note || ""}</p>
+      <div class="meta">${p.time ? "🕒 " + p.time : ""}${p.time && p.metro ? " &nbsp;·&nbsp; " : ""}${p.metro ? "🚇 " + p.metro : ""}</div>
+      <div class="links"><a href="${gmaps(p)}" target="_blank" rel="noopener">Google Maps</a><a class="naver" href="${naver(p)}" target="_blank" rel="noopener">Naver Map</a><a class="alt" href="${gdir(p)}" target="_blank" rel="noopener">Chỉ đường</a></div>
+    </div>`, { maxWidth: 290, minWidth: 270 });
+  markers.set(idOf(p), m);
+});
+
+function pinIcon(p) {
+  const c = CATEGORIES[p.cat];
+  const big = isBig(), s = big ? 58 : 30;
+  const inner = big && p.img ? `<img src="${p.img}" alt="" loading="lazy">` : `<span>${c.emoji}</span>`;
+  return L.divIcon({
+    className: "",
+    html: `<div class="pin ${big ? "big" : ""} ${visited[idOf(p)] ? "done" : ""}" style="--c:${c.color}">${inner}</div>`,
+    // ghim là hình vuông xoay 45°, mũi nhọn nằm dưới tâm s/√2
+    iconSize: [s, s], iconAnchor: [s / 2, Math.round(s * 1.207)], popupAnchor: [0, -s],
+  });
+}
+
+let pinsBig = false;
+function updatePins() {
+  if (isBig() === pinsBig) return;
+  pinsBig = isBig();
+  markers.forEach((m, id) => {
+    m.setIcon(pinIcon(PLACES.find(p => idOf(p) === id)));
+    m.getTooltip().options.offset = labelOffset(pinsBig);
+    m.getTooltip().update();
+  });
+}
+
+function updateLabels() {
+  const z = map.getZoom();
+  map.getContainer().classList.toggle("hide-labels", z < 13);
+  z >= 13 ? districtLayer.addTo(map) : districtLayer.remove();
+}
+map.on("zoomend", updateLabels);
+map.on("zoomend", updatePins);
+
+// --- nhảy nhanh giữa các thành phố (Seoul bỏ các điểm ngoại thành để zoom vừa nội thành) ---
+const CITY_CORE = { seoul: p => p.lng > 126.8 && p.lng < 127.15 && p.lat > 37.45 && p.lat < 37.65 };
+function flyToCity(k, animate = true) {
+  const pts = PLACES.filter(p => p.city === k && (!CITY_CORE[k] || CITY_CORE[k](p)));
+  const b = L.latLngBounds(pts.map(p => [p.lat, p.lng])).pad(0.08);
+  animate ? map.flyToBounds(b, { duration: 0.8 }) : map.fitBounds(b);
+}
+let activeCity = "seoul"; // "" = cả nước
+document.getElementById("cities").innerHTML =
+  Object.entries(CITIES).map(([k, c]) => `<button class="btn" data-city="${k}">${c.label} <span class="ko">${c.ko}</span></button>`).join("") +
+  `<button class="btn" data-city="" title="Tất cả thành phố">🇰🇷</button>`;
+document.getElementById("cities").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  activeCity = b.dataset.city;
+  render();
+  activeCity ? flyToCity(activeCity) : map.flyToBounds(L.latLngBounds(PLACES.map(p => [p.lat, p.lng])).pad(0.05), { duration: 0.8 });
+});
+flyToCity(activeCity, false);
+updateLabels();
+
+// --- sidebar ---
+const $ = id => document.getElementById(id);
+
+$("chips").innerHTML = `<button class="chip" data-cat="">Tất cả</button>` +
+  Object.entries(CATEGORIES).map(([k, c]) =>
+    `<button class="chip" data-cat="${k}">${c.emoji} ${c.label}</button>`).join("");
+$("chips").addEventListener("click", e => {
+  const b = e.target.closest(".chip"); if (!b) return;
+  const k = b.dataset.cat;
+  if (!k) activeCats.clear();
+  else activeCats.has(k) ? activeCats.delete(k) : activeCats.add(k);
+  render();
+});
+$("q").addEventListener("input", render);
+$("hideDone").addEventListener("change", render);
+
+function matches(p) {
+  const q = $("q").value.trim().toLowerCase();
+  if (activeCity && p.city !== activeCity) return false;
+  if (activeCats.size && !activeCats.has(p.cat)) return false;
+  if ($("hideDone").checked && visited[idOf(p)]) return false;
+  if (!q) return true;
+  return [p.name, p.ko, p.area, p.note, p.metro, CITIES[p.city].label].join(" ").toLowerCase().includes(q);
+}
+
+function render() {
+  document.querySelectorAll(".chip").forEach(b => b.setAttribute("aria-pressed",
+    b.dataset.cat ? activeCats.has(b.dataset.cat) : activeCats.size === 0));
+  document.querySelectorAll("#cities .btn").forEach(b => b.setAttribute("aria-pressed", b.dataset.city === activeCity));
+  const shown = PLACES.filter(matches);
+  markers.forEach((m, id) => {
+    const p = PLACES.find(x => idOf(x) === id);
+    shown.includes(p) ? m.addTo(map) : m.remove();
+  });
+
+  $("list").innerHTML = Object.entries(CATEGORIES).map(([k, c]) => {
+    const items = shown.filter(p => p.cat === k);
+    if (!items.length) return "";
+    return `<div class="group"><h2>${c.emoji} ${c.label} · ${items.length}</h2>${items.map(p => `
+      <div class="item ${visited[idOf(p)] ? "done" : ""}" data-id="${idOf(p)}">
+        ${p.img
+          ? `<div class="thumb"><img src="${p.img}" alt="" loading="lazy"><span>${c.emoji}</span></div>`
+          : `<div class="dot" style="--c:${c.color}33">${c.emoji}</div>`}
+        <div><b>${p.name}</b><div class="sub">${p.ko || ""} · ${p.city === "seoul" ? p.area : CITIES[p.city].label + " · " + p.area}</div></div>
+        <input type="checkbox" title="Đã đi" ${visited[idOf(p)] ? "checked" : ""}>
+      </div>`).join("")}</div>`;
+  }).join("") || `<p style="padding:16px;color:var(--muted)">Không có địa điểm nào khớp.</p>`;
+  $("list").insertAdjacentHTML("beforeend", `<div class="credit">Ảnh: Wikipedia / Wikimedia Commons</div>`);
+
+  const scope = PLACES.filter(p => !activeCity || p.city === activeCity);
+  const done = scope.filter(p => visited[idOf(p)]).length;
+  $("progress").textContent = `${activeCity ? CITIES[activeCity].label + " · " : ""}${scope.length} địa điểm · đã đi ${done}`;
+  $("bar").style.width = (done / scope.length * 100) + "%";
+}
+
+$("list").addEventListener("click", e => {
+  const row = e.target.closest(".item"); if (!row) return;
+  const id = row.dataset.id;
+  if (e.target.matches("input[type=checkbox]")) {
+    e.target.checked ? (visited[id] = true) : delete visited[id];
+    store.set(visited);
+    markers.get(id).setIcon(pinIcon(PLACES.find(p => idOf(p) === id)));
+    render();
+    return;
+  }
+  const m = markers.get(id);
+  map.flyTo(m.getLatLng(), Math.max(map.getZoom(), 15), { duration: 0.6 });
+  map.once("moveend", () => m.openPopup());
+  if (innerWidth <= 768) scrollTo({ top: 0, behavior: "smooth" });
+});
+
+// --- export KML để import vào Google My Maps ---
+$("kml").addEventListener("click", () => {
+  const esc = s => String(s || "").replace(/[<>&]/g, ch => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[ch]));
+  const folders = Object.entries(CATEGORIES).map(([k, c]) => {
+    const pts = PLACES.filter(p => p.cat === k);
+    if (!pts.length) return "";
+    return `<Folder><name>${esc(c.emoji + " " + c.label)}</name>${pts.map(p => `
+      <Placemark><name>${esc(p.name)}</name>
+        <description>${esc([p.ko, p.note, p.time && "Giờ đẹp: " + p.time, p.metro && "Tàu điện: " + p.metro].filter(Boolean).join("\n"))}</description>
+        <Point><coordinates>${p.lng},${p.lat},0</coordinates></Point></Placemark>`).join("")}</Folder>`;
+  }).join("");
+  const kml = `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>Hàn Quốc</name>${folders}</Document></kml>`;
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([kml], { type: "application/vnd.google-earth.kml+xml" }));
+  a.download = "korea.kml";
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+
+render();
+</script>
+</body>
+</html>
