@@ -124,11 +124,29 @@
 
   #toggle { display: none; }
 
+  .full-btn { display: grid !important; place-items: center; color: #333 !important; }
+  body.map-full { overflow: hidden; }
+  body.map-full #map { position: fixed; inset: 0; width: auto; height: auto; z-index: 1000; box-shadow: none; }
+
+  /* Điện thoại: cả trang cuộn bình thường, bản đồ dính ở trên, danh sách cuộn bên dưới */
   @media (max-width: 768px) {
-    body { grid-template-columns: 1fr; grid-template-rows: 55vh 1fr; }
-    #map { grid-row: 1; }
-    aside { grid-row: 2; border-right: 0; border-top: 1px solid var(--line); }
+    html, body { height: auto; }
+    body { display: flex; flex-direction: column; }
+    #map {
+      order: -1; flex: none;
+      position: sticky; top: 0; z-index: 2;
+      height: 45vh; height: 45svh;
+      box-shadow: 0 2px 8px rgba(0,0,0,.25);
+    }
+    aside { border-right: 0; min-height: 0; }
     header { padding: 12px 16px 8px; }
+    .controls { padding: 10px 16px; gap: 8px; }
+    .chips { flex-wrap: nowrap; overflow-x: auto; margin: 0 -16px; padding: 0 16px 2px; scrollbar-width: none; }
+    .chips::-webkit-scrollbar { display: none; }
+    .chip { flex: none; }
+    #list { overflow: visible; padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
+    .pop .photo { height: 100px; }
+    .pop p { margin: 6px 0; }
   }
 </style>
 </head>
@@ -176,6 +194,9 @@ const PLACES = [
   { cat: "view", name: "Peak Tram", zh: "山頂纜車", lat: 22.2779, lng: 114.1595, area: "Central",
     note: "Tàu leo dốc lên đỉnh Peak. Ngồi bên PHẢI để thấy view. Đi sớm trước 10h đỡ xếp hàng.", time: "Sáng sớm", mtr: "Central (exit J2)",
     img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/27/CWA_6th_Generation_Peak_Tram.jpg/960px-CWA_6th_Generation_Peak_Tram.jpg" },
+  { cat: "view", name: "Edward Youde Aviary", zh: "尤德觀鳥園", lat: 22.2766, lng: 114.1606, area: "Hong Kong Park, Admiralty",
+    note: "Lồng chim khổng lồ trong Hong Kong Park, đi trên cầu gỗ ngang tán cây, vài trăm con chim nhiệt đới. Miễn phí, mở ~9:00–17:00. Sát ga Peak Tram, đi chung được.", time: "Sáng", mtr: "Admiralty (exit C1)",
+    img: "https://upload.wikimedia.org/wikipedia/commons/d/d5/HK_Park_rataviary.jpg" },
   { cat: "view", name: "Avenue of Stars", zh: "星光大道", lat: 22.2930, lng: 114.1738, area: "Tsim Sha Tsui",
     note: "Đi dạo bờ cảng nhìn sang đảo HK. Show ánh sáng Symphony of Lights lúc 20:00 mỗi tối.", time: "20:00", mtr: "East TST",
     img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/06/Avenue_of_Stars_201901.jpg/960px-Avenue_of_Stars_201901.jpg" },
@@ -198,9 +219,9 @@ const PLACES = [
   { cat: "view", name: "Chi Lin Nunnery & Nan Lian Garden", zh: "志蓮淨苑 · 南蓮園池", lat: 22.3404, lng: 114.2040, area: "Diamond Hill",
     note: "Chùa gỗ kiến trúc Đường + vườn cảnh, miễn phí. Kết hợp đi chung với Wong Tai Sin.", time: "Sáng", mtr: "Diamond Hill (exit C2)",
     img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d0/Chi_Lin_Nunnery_%282037672635%29.jpg/960px-Chi_Lin_Nunnery_%282037672635%29.jpg" },
-  { cat: "view", name: "Tian Tan Buddha (Big Buddha)", zh: "天壇大佛", lat: 22.2540, lng: 113.9050, area: "Ngong Ping, Lantau",
-    note: "Tượng Phật ngồi bằng đồng khổng lồ + chùa Po Lin. Đi cáp treo Ngong Ping 360 lên. Mất nửa ngày.", time: "Cả buổi sáng", mtr: "Tung Chung → cáp treo",
-    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/2c/Tian_Tan_Buddha_2023081302.jpg/960px-Tian_Tan_Buddha_2023081302.jpg" },
+  { cat: "view", name: "Kowloon Walled City Park", zh: "九龍寨城公園 (Cửu Long Thành Trại)", lat: 22.3319, lng: 114.1900, area: "Kowloon City",
+    note: "Nền cũ của Cửu Long Thành Trại (phá năm 1994), giờ là công viên kiểu Giang Nam, còn giữ cổng nam và nha môn. Có mô hình khu thành trại ngày xưa. Miễn phí. Ăn trưa ở khu Kowloon City gần đó (nhiều quán Thái).", time: "Sáng / chiều", mtr: "Sung Wong Toi (exit B3) ~10 phút",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/99/Kowloon_Walled_City_Park_Overview_201807.jpg/960px-Kowloon_Walled_City_Park_Overview_201807.jpg" },
   { cat: "view", name: "Tai Kwun", zh: "大館", lat: 22.2816, lng: 114.1543, area: "Central",
     note: "Đồn cảnh sát & nhà tù cũ thành khu nghệ thuật, nhiều quán xinh. Miễn phí.", time: "Chiều", mtr: "Central (exit D2)",
     img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/dc/Tai_Kwun_Police_Headquarters_Block_201806.jpg/960px-Tai_Kwun_Police_Headquarters_Block_201806.jpg" },
@@ -232,31 +253,11 @@ const PLACES = [
   { cat: "view", name: "Ding Ding Tram (Western Market)", zh: "叮叮車 · 西港城", lat: 22.2869, lng: 114.1505, area: "Sheung Wan",
     note: "Leo lên tầng 2 hàng ghế đầu tàu điện leng keng, đi dọc đảo HK chỉ ~3 HKD.", time: "Bất kỳ", mtr: "Sheung Wan",
     img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/ba/Hong_Kong_Tramways_in_2017.jpg/960px-Hong_Kong_Tramways_in_2017.jpg" },
-  { cat: "view", name: "Tai O Fishing Village", zh: "大澳", lat: 22.2532, lng: 113.8618, area: "Lantau",
-    note: "Làng chài nhà sàn, đi thuyền xem cá heo hồng. Combo với Big Buddha.", time: "Chiều", mtr: "Bus 21 từ Ngong Ping",
-    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/74/1_tai_o_hong_kong_2013.jpg/960px-1_tai_o_hong_kong_2013.jpg" },
-  { cat: "view", name: "Kennedy Town Waterfront", zh: "堅尼地城", lat: 22.2839, lng: 114.1270, area: "Kennedy Town",
-    note: "Ngắm hoàng hôn ven biển, khu cafe chill.", time: "Hoàng hôn", mtr: "Kennedy Town",
-    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/2e/Kennedy_Town_3.jpg/960px-Kennedy_Town_3.jpg" },
+  { cat: "view", name: "Kennedy Town Playground (sân bóng rổ)", zh: "堅尼地城遊樂場", lat: 22.2817, lng: 114.1280, area: "Kennedy Town",
+    note: "Sân bóng rổ nằm giữa các toà chung cư, góc chụp ảnh nổi tiếng. Ngay cạnh lối ra ga, trên đường Forbes Street.", time: "Chiều", mtr: "Kennedy Town (lối C)",
+    url: "https://www.google.com/maps/search/?api=1&query=Kennedy+Town+Playground+Forbes+Street+Hong+Kong",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/33/Kennedy_Town_Playground_2014.jpg/960px-Kennedy_Town_Playground_2014.jpg" },
 
-  { cat: "view", name: "Dragon's Back", zh: "龍脊", lat: 22.2390, lng: 114.2440, area: "Shek O",
-    note: "Cung trekking dễ, ~2–3 tiếng, view biển cực đẹp. Bus 9 từ Shau Kei Wan, xuống To Tei Wan.", time: "Sáng", mtr: "Shau Kei Wan → bus 9",
-    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/32/Dragon%27s_Back_-_Trail_Start%2C_Hong_Kong_%28Unsplash%29.jpg/960px-Dragon%27s_Back_-_Trail_Start%2C_Hong_Kong_%28Unsplash%29.jpg" },
-  { cat: "view", name: "Repulse Bay", zh: "淺水灣", lat: 22.2367, lng: 114.1966, area: "Southern District",
-    note: "Bãi biển hình trăng khuyết, nước trong. Ghé trên đường đi Stanley.", time: "Trưa", mtr: "Bus 6/6X từ Central",
-    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d4/View_of_Repulse_Bay_from_Sir_Cecil%27s_Ride.jpg/960px-View_of_Repulse_Bay_from_Sir_Cecil%27s_Ride.jpg" },
-  { cat: "view", name: "Lion Rock", zh: "獅子山", lat: 22.3520, lng: 114.1870, area: "Kowloon",
-    note: "Leo ~1.5 tiếng, view toàn Kowloon từ đầu 'sư tử'. Biểu tượng tinh thần HK.", time: "Sáng / hoàng hôn", mtr: "Wong Tai Sin",
-    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c5/Lion_Rock_5.jpg/960px-Lion_Rock_5.jpg" },
-  { cat: "view", name: "Sai Kung", zh: "西貢", lat: 22.3816, lng: 114.2709, area: "Sai Kung",
-    note: "Thị trấn hải sản, đi thuyền ra đảo / bãi biển hoang sơ.", time: "Cả ngày", mtr: "Diamond Hill → minibus 1A",
-    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f2/Sai_Kung_Town_Aerial_View_201706.jpg/960px-Sai_Kung_Town_Aerial_View_201706.jpg" },
-  { cat: "view", name: "Lamma Island", zh: "南丫島", lat: 22.2270, lng: 114.1080, area: "Đảo",
-    note: "Đảo không xe hơi, đi bộ Yung Shue Wan → Sok Kwu Wan, ăn hải sản. Phà từ Central Pier 4.", time: "Nửa ngày", mtr: "Central Pier 4",
-    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/54/Aerial_photo_of_Yung_Shue_Wan%2C_Lamma_Island.jpg/960px-Aerial_photo_of_Yung_Shue_Wan%2C_Lamma_Island.jpg" },
-  { cat: "view", name: "Cheung Chau", zh: "長洲", lat: 22.2095, lng: 114.0285, area: "Đảo",
-    note: "Đảo làng chài, xiên cá viên khổng lồ, bánh bao may mắn. Phà từ Central Pier 5.", time: "Nửa ngày", mtr: "Central Pier 5",
-    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/21/Blick_%C3%BCber_Cheung_Chau.JPG/960px-Blick_%C3%BCber_Cheung_Chau.JPG" },
 
   // --- Mua sắm ---
   { cat: "shop", name: "Sneakers Street", zh: "波鞋街", lat: 22.3191, lng: 114.1726, area: "Mong Kok",
@@ -279,6 +280,16 @@ const PLACES = [
   { cat: "market", name: "Temple Street Night Market", zh: "廟街夜市", lat: 22.3062, lng: 114.1700, area: "Jordan",
     note: "Chợ đêm, đồ ăn vặt, xem bói. Nhớ trả giá.", time: "Sau 19h", mtr: "Jordan (exit A)",
     img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a6/GateOfTempleInHongKong.jpg/960px-GateOfTempleInHongKong.jpg" },
+  { cat: "market", name: "Yau Ma Tei Fruit Market", zh: "油麻地果欄", lat: 22.3122, lng: 114.1682, area: "Yau Ma Tei",
+    note: "Chợ sỉ trái cây hơn 100 năm tuổi, dãy nhà cũ thời trước chiến tranh. Rạng sáng (~4–6h) là lúc bốc dỡ hàng tấp nập nhất; ban ngày vẫn mua lẻ được. Rất gần Mido Café và Temple Street.", time: "Sáng sớm", mtr: "Yau Ma Tei (exit B2)",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/88/Yau_Ma_Tei_Wholesale_Fruit_Market_202005.jpg/960px-Yau_Ma_Tei_Wholesale_Fruit_Market_202005.jpg" },
+  { cat: "market", name: "Wan Chai Market", zh: "灣仔街市", lat: 22.2746, lng: 114.1743, area: "Wan Chai",
+    note: "Chợ ướt của dân local: thịt, cá, rau, đồ khô. Toà nhà cũ 1937 kiểu Streamline Moderne ở 264 Queen's Road East; chợ hiện tại nằm tầng dưới toà The Zenith ngay đối diện. Đi tiếp ra Tai Yuen Street (phố đồ chơi) & Cross Street có chợ ngoài trời. Gần Lee Tung Avenue, Blue House.", time: "Sáng", mtr: "Wan Chai (exit A3)",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/4d/Wan_Chai_Market_Outside_View_2008.jpg/960px-Wan_Chai_Market_Outside_View_2008.jpg" },
+  { cat: "market", name: "Fa Yuen Street Market", zh: "花園街街市", lat: 22.3225, lng: 114.1716, area: "Mong Kok",
+    note: "Chợ đường phố đoạn bắc Fa Yuen Street (từ Mong Kok Road lên Prince Edward Road West): sạp quần áo, đồ gia dụng, trái cây, rau. Chợ ướt + cooked food centre trong toà 123A Fa Yuen St. Đi tiếp xuống phía nam là Sneakers Street; sát Goldfish Market, Ladies' Market. Pin đặt giữa đoạn chợ (ước lượng).", time: "Chiều", mtr: "Prince Edward / Mong Kok",
+    url: "https://www.google.com/maps/search/?api=1&query=Fa+Yuen+Street+Market+Mong+Kok",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/5d/202311_Market_stalls_in_Fa_Yuen_Street%2C_Mong_Kok.jpg/960px-202311_Market_stalls_in_Fa_Yuen_Street%2C_Mong_Kok.jpg" },
   { cat: "market", name: "Ladies' Market", zh: "女人街", lat: 22.3187, lng: 114.1709, area: "Mong Kok",
     note: "Chợ quần áo, quà lưu niệm giá rẻ. Trả giá 30–50%.", time: "Chiều tối", mtr: "Mong Kok (exit E2)",
     img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b2/Tung_Choi_Street_201705.JPG/960px-Tung_Choi_Street_201705.JPG" },
@@ -288,9 +299,6 @@ const PLACES = [
   { cat: "market", name: "Apliu Street (Sham Shui Po)", zh: "鴨寮街", lat: 22.3297, lng: 114.1622, area: "Sham Shui Po",
     note: "Chợ đồ điện tử, đồ cũ. Sham Shui Po là khu 'HK local' nhất, nhiều đồ ăn ngon rẻ.", time: "Chiều", mtr: "Sham Shui Po",
     img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/fe/Apliu_Street_201506.jpg/960px-Apliu_Street_201506.jpg" },
-  { cat: "market", name: "Stanley Market", zh: "赤柱市集", lat: 22.2186, lng: 114.2108, area: "Stanley",
-    note: "Chợ ven biển phía nam đảo, combo với Repulse Bay. Bus 6/6X/260 từ Central.", time: "Cả buổi", mtr: "Bus từ Central",
-    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/11/Stanley_Market_View1_201007.jpg/960px-Stanley_Market_View1_201007.jpg" },
 
   // --- Ăn uống ---
   { cat: "food", name: "Tim Ho Wan (Sham Shui Po)", zh: "添好運", lat: 22.3307, lng: 114.1618, area: "Sham Shui Po",
@@ -300,8 +308,38 @@ const PLACES = [
     note: "Cha chaan teng huyền thoại: trứng chưng sữa, bánh mì trứng bác. Phục vụ siêu nhanh & cục — đó là đặc sản.", time: "Sáng", mtr: "Jordan (exit C2)",
     img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/39/Australia_Dairy_Company_outlook.JPG/960px-Australia_Dairy_Company_outlook.JPG" },
   { cat: "food", name: "Kam's Roast Goose", zh: "甘牌燒鵝", lat: 22.2773, lng: 114.1748, area: "Wan Chai",
-    note: "Ngỗng quay sao Michelin. Hay xếp hàng, đi giờ lệch.", time: "Trưa sớm", mtr: "Wan Chai (exit A4)",
+    note: "Ngỗng quay sao Michelin, có cả vịt quay (roast duck) và cơm thịt quay 2 loại. Hay xếp hàng, đi giờ lệch.", time: "Trưa sớm", mtr: "Wan Chai (exit A4)",
     img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/03/Food_%E7%94%98%E7%89%8C%E7%87%92%E9%B4%A8%E9%9B%99%E6%8B%BC%E9%A3%AF%2C_%E7%94%98%E7%89%8C%E7%87%92%E5%91%B3%2C_%E7%94%98%E7%89%8C%E7%87%92%E9%B5%9D%2C_Kam%27s_Roast%2C_%E5%8F%B0%E5%8C%97101%2C_%E5%8F%B0%E5%8C%97%2C_%E5%8F%B0%E7%81%A3%2C_Taipei%2C_Taiwan_%2846542572844%29.jpg/960px-Food_%E7%94%98%E7%89%8C%E7%87%92%E9%B4%A8%E9%9B%99%E6%8B%BC%E9%A3%AF%2C_%E7%94%98%E7%89%8C%E7%87%92%E5%91%B3%2C_%E7%94%98%E7%89%8C%E7%87%92%E9%B5%9D%2C_Kam%27s_Roast%2C_%E5%8F%B0%E5%8C%97101%2C_%E5%8F%B0%E5%8C%97%2C_%E5%8F%B0%E7%81%A3%2C_Taipei%2C_Taiwan_%2846542572844%29.jpg" },
+  { cat: "food", name: "Cheung Fun Wong", zh: "腸粉皇", lat: 22.2771, lng: 114.1774, area: "Wan Chai",
+    note: "Quán cheung fun (bánh cuốn kiểu HK) ở 177–179 Wan Chai Road. Gần Wan Chai Market, ghé chung được.", time: "Sáng", mtr: "Wan Chai",
+    url: "https://www.google.com/maps/search/?api=1&query=Cheung+Fun+Wong+177+Wan+Chai+Road+Hong+Kong" },
+  { cat: "food", name: "Sun King Yuen Curry Restaurant", zh: "新景園咖喱小廚", lat: 22.2758, lng: 114.1730, area: "Wan Chai (Spring Garden Lane)",
+    note: "Quán cà ri kiểu HK ở 20 Spring Garden Lane, nổi tiếng cơm sườn heo chiên cà ri (咖喱豬扒飯) — sườn tẩm bột mỏng, giòn ngoài mềm trong. Có cả bò xào phở (乾炒牛河). Giờ ăn trưa / tối hay xếp hàng, chỗ ngồi đơn giản. Gần Lee Tung Avenue, Wan Chai Market.", time: "Trưa sớm", mtr: "Wan Chai (exit A3)",
+    url: "https://www.google.com/maps/search/?api=1&query=Sun+King+Yuen+Curry+Restaurant+20+Spring+Garden+Lane+Wan+Chai",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a1/HK_WCD_%E7%81%A3%E4%BB%94_Wan_Chai_%E6%98%A5%E5%9C%92%E8%A1%97_20_Spring_Garden_Lane_shop_%E6%96%B0%E6%99%AF%E5%9C%92%E5%92%96%E5%96%B1%E5%B0%8F%E5%BB%9A_Sun_King_Yuen_Curry_Restaurant_July_2021_SS2.jpg/960px-HK_WCD_%E7%81%A3%E4%BB%94_Wan_Chai_%E6%98%A5%E5%9C%92%E8%A1%97_20_Spring_Garden_Lane_shop_%E6%96%B0%E6%99%AF%E5%9C%92%E5%92%96%E5%96%B1%E5%B0%8F%E5%BB%9A_Sun_King_Yuen_Curry_Restaurant_July_2021_SS2.jpg" },
+  { cat: "food", name: "Lin Heung Lau", zh: "蓮香樓", lat: 22.2863, lng: 114.1525, area: "Sheung Wan",
+    note: "Trà lầu 100+ năm, dimsum đẩy xe kiểu xưa, tự tìm chỗ ngồi ghép bàn. Từ 4/2026 đã chuyển từ Wellington St (Central) sang 249–253 Des Voeux Road Central, Sheung Wan — đừng tới chỗ cũ.", time: "Sáng sớm", mtr: "Sheung Wan",
+    url: "https://www.google.com/maps/search/?api=1&query=Lin+Heung+Lau+249+Des+Voeux+Road+Central+Sheung+Wan" },
+  { cat: "food", name: "Tak Hing Siu Mei", zh: "德興燒味飯店 (鰂魚涌分店)", lat: 22.2865, lng: 114.2109, area: "Quarry Bay",
+    note: "Quán siu mei (thịt quay kiểu HK): xá xíu, ngỗng / vịt quay, heo quay, cơm thịt quay. Ở 981 King's Road, sát Monster Building — chụp xong ghé ăn trưa.", time: "Trưa", mtr: "Quarry Bay / Tai Koo",
+    url: "https://www.google.com/maps/search/?api=1&query=%E5%BE%B7%E8%88%88%E7%87%92%E5%91%B3%E9%A3%AF%E5%BA%97+981+King%27s+Road+Quarry+Bay" },
+  { cat: "food", name: "Sing Heung Yuen", zh: "勝香園", lat: 22.2841, lng: 114.1525, area: "Central (Mee Lun St)",
+    note: "Dai pai dong (sạp ăn ngoài trời) lâu đời ở số 2 Mee Lun Street, cách Kau Kee vài bước. Nổi tiếng mì / nui sốt cà chua bò, trứng và bánh mì giòn chanh mật ong. Chỉ nhận tiền mặt, chỉ mở ban ngày.", time: "Sáng / trưa", mtr: "Sheung Wan / Central",
+    url: "https://www.google.com/maps/search/?api=1&query=Sing+Heung+Yuen+2+Mee+Lun+Street+Central+Hong+Kong",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/74/HK_%E4%B8%8A%E7%92%B0_Sheung_Wan_%E6%AD%8C%E8%B3%A6%E8%A1%97_Gough_Street_%E7%BE%8E%E8%BC%AA%E8%A1%97_Mee_Lun_Street_%E5%8B%9D%E9%A6%99%E5%9C%92_Shing_Heung_Yuen_%E5%A4%A7%E6%8E%92%E6%AA%94_Dai_pai_Dong_breakfast_%E6%97%A9%E6%99%A8_morning_February_2025_R12S_02.jpg/960px-thumbnail.jpg" },
+  { cat: "food", name: "Sheung Wan Cooked Food Centre", zh: "上環熟食中心", lat: 22.2862, lng: 114.1498, area: "Sheung Wan",
+    note: "Food court của dân local ở tầng 2 toà chợ Sheung Wan (345 Queen's Road Central): hàng chục sạp kiểu dai pai dong trong nhà — trà sữa / cà phê (瑞記), dimsum, món xào, cơm Triều Châu, hải sản buổi tối. Giá rẻ, trưa rất đông. Tầng dưới là chợ ướt.", time: "Trưa / tối", mtr: "Sheung Wan (exit A2)",
+    url: "https://www.google.com/maps/search/?api=1&query=Sheung+Wan+Cooked+Food+Centre+345+Queen%27s+Road+Central",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a1/HK_Sheung_Wan_Cooked_Food_Centre.jpg/960px-HK_Sheung_Wan_Cooked_Food_Centre.jpg" },
+  { cat: "food", name: "Ying Kee Noodle", zh: "英記油渣麵", lat: 22.3220, lng: 114.1640, area: "Tai Kok Tsui",
+    note: "Quán mì tóp mỡ (油渣麵) — mì với tóp mỡ heo giòn, chọn thêm topping. Ở 4 Lime Street, Tai Kok Tsui (phía tây Mong Kok).", time: "Trưa", mtr: "Olympic / Mong Kok",
+    url: "https://www.google.com/maps/search/?api=1&query=Ying+Kee+Noodle+4+Lime+Street+Tai+Kok+Tsui" },
+  { cat: "food", name: "Islam Food", zh: "清真牛肉館", lat: 22.3292, lng: 114.1915, area: "Kowloon City",
+    note: "Quán halal lâu đời (từ 1950). Món phải gọi: bánh bò áp chảo (牛肉餅) — nhân bò mọng nước bọc vỏ bột chiên vàng; có cả cà ri cừu. Đã dời từ Lung Kong Road sang 33–35 Tak Ku Ling Road — đừng tới chỗ cũ. Gần Kowloon Walled City Park.", time: "Trưa", mtr: "Sung Wong Toi ~10 phút",
+    url: "https://www.google.com/maps/search/?api=1&query=Islam+Food+33+Tak+Ku+Ling+Road+Kowloon+City" },
+  { cat: "food", name: "Mui Kee Congee", zh: "妹記生滾粥品", lat: 22.3208, lng: 114.1706, area: "Mong Kok",
+    note: "Quán cháo sanh cổn (生滾粥 – nấu từng nồi khi gọi) nổi tiếng. Nằm trong Cooked Food Centre tầng 3 toà chợ 123A Fa Yuen Street (Shop 11–12) — đi thang lên. Ăn sáng xong dạo Fa Yuen Street Market, Goldfish Market.", time: "Sáng", mtr: "Prince Edward / Mong Kok",
+    url: "https://www.google.com/maps/search/?api=1&query=Mui+Kee+Congee+123A+Fa+Yuen+Street+Mong+Kok" },
   { cat: "food", name: "Kau Kee", zh: "九記牛腩", lat: 22.2846, lng: 114.1516, area: "Central (Gough St)",
     note: "Mì nạm bò / gân bò cà ri nổi tiếng. Chủ nhật nghỉ.", time: "Trưa", mtr: "Sheung Wan",
     img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d1/Kau_Kee_Restaurant.JPG/960px-Kau_Kee_Restaurant.JPG" },
@@ -322,11 +360,35 @@ const PLACES = [
   { cat: "cafe", name: "Tai Cheong Bakery", zh: "泰昌餅家", lat: 22.2834, lng: 114.1537, area: "Central",
     note: "Tart trứng nổi tiếng (Lyndhurst Terrace), mua ăn khi còn nóng.", time: "Bất kỳ", mtr: "Central",
     img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f5/Tai_Cheong_Bakery_%28Hong_Kong%29.jpg/960px-Tai_Cheong_Bakery_%28Hong_Kong%29.jpg" },
+  { cat: "cafe", name: "Sugar Mami", zh: "甜西施研究所", lat: 22.33244, lng: 114.16133, area: "Sham Shui Po",
+    note: "Tiệm chè kiểu HK, nổi tiếng chè xoài bưởi bột báng (楊枝甘露) và chè khoai môn, ~HK$40. Mở 11:30–23:30. Ghé sau khi ăn Tim Ho Wan / dạo Apliu Street.", time: "Chiều / tối", mtr: "Sham Shui Po",
+    url: "https://share.google/lN7YcEKCuNaJcCE0f" },
+  { cat: "cafe", name: "Kung Wo Beancurd Factory", zh: "公和荳品廠", lat: 22.3311, lng: 114.1635, area: "Sham Shui Po",
+    note: "Xưởng đậu hũ lâu đời ở 118 Pei Ho Street, có trong Michelin Guide: tàu hũ (豆腐花), sữa đậu nành, đậu hũ chiên nhồi cá. Chỉ nhận tiền mặt. Mở khoảng 7:00–21:00 (có nguồn ghi 6:00–21:30). Gần Tim Ho Wan & Sugar Mami.", time: "Sáng / chiều", mtr: "Sham Shui Po (exit B2)",
+    url: "https://www.google.com/maps/search/?api=1&query=Kung+Wo+Beancurd+Factory+118+Pei+Ho+Street+Sham+Shui+Po" },
+  { cat: "cafe", name: "Cheung Hing Coffee Shop", zh: "祥興咖啡室", lat: 22.2694, lng: 114.1850, area: "Happy Valley",
+    note: "Cha chaan teng từ 1951 ở 9 Yik Yam Street, còn giữ ghế gỗ, sàn caro kiểu xưa. Nổi tiếng bánh dứa (菠蘿包), tart trứng và trà sữa. Sáng hay xếp hàng. Chỉ mở ban ngày, khoảng 6–7h sáng tới 17:45–18:00 tuỳ nguồn.", time: "Sáng sớm", mtr: "Tram Happy Valley, hoặc Causeway Bay đi bộ ~15 phút",
+    url: "https://www.google.com/maps/search/?api=1&query=Cheung+Hing+Coffee+Shop+9+Yik+Yam+Street+Happy+Valley",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/18/HK_HV_%E8%B7%91%E9%A6%AC%E5%9C%B0_Happy_Valley_%E5%A5%95%E8%94%AD%E8%A1%97_Yik_Yam_Street_%E7%A5%A5%E8%88%88%E5%92%96%E5%95%A1%E5%AE%A4_Cheung_Hing_Coffee_Shop_July_2020_SS2_01.jpg/960px-HK_HV_%E8%B7%91%E9%A6%AC%E5%9C%B0_Happy_Valley_%E5%A5%95%E8%94%AD%E8%A1%97_Yik_Yam_Street_%E7%A5%A5%E8%88%88%E5%92%96%E5%95%A1%E5%AE%A4_Cheung_Hing_Coffee_Shop_July_2020_SS2_01.jpg" },
+  { cat: "cafe", name: "Yee Shun Milk Company", zh: "港澳義順牛奶公司", lat: 22.2807, lng: 114.1830, area: "Causeway Bay",
+    note: "Tiệm sữa hấp gốc Macau ở 506 Lockhart Road. Món phải thử: song bì nãi (雙皮奶, sữa hấp 2 lớp váng) ăn nóng hoặc lạnh; còn có sữa hấp gừng, song bì nãi đậu đỏ. Từng có chi nhánh bên Kowloon (Yau Ma Tei / Jordan) nhưng chưa xác nhận còn mở.", time: "Chiều / tối", mtr: "Causeway Bay",
+    url: "https://www.google.com/maps/search/?api=1&query=Yee+Shun+Milk+Company+506+Lockhart+Road+Causeway+Bay",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/fd/HK_cwb_%E9%8A%85%E9%91%BC%E7%81%A3_Causeway_Bay_%E9%A7%B1%E5%85%8B%E9%81%93_506_Lockhart_Road_%E6%B8%AF%E6%BE%B3%E7%BE%A9%E9%A0%86%E7%89%9B%E5%A5%B6%E5%85%AC%E5%8F%B8_Yee_Shun_Dairy_Company_food_sweet_%E9%9B%99%E7%9A%AE%E5%A5%B6_%E7%94%9C%E5%93%81_June_2020_SS2_03.jpg/960px-HK_cwb_%E9%8A%85%E9%91%BC%E7%81%A3_Causeway_Bay_%E9%A7%B1%E5%85%8B%E9%81%93_506_Lockhart_Road_%E6%B8%AF%E6%BE%B3%E7%BE%A9%E9%A0%86%E7%89%9B%E5%A5%B6%E5%85%AC%E5%8F%B8_Yee_Shun_Dairy_Company_food_sweet_%E9%9B%99%E7%9A%AE%E5%A5%B6_%E7%94%9C%E5%93%81_June_2020_SS2_03.jpg" },
+  { cat: "cafe", name: "Halfway Coffee", zh: "半路咖啡", lat: 22.2848, lng: 114.1497, area: "Sheung Wan (Cat Street)",
+    note: "Quán cafe nhỏ ở 26 Upper Lascar Row — phố đồ cổ Cat Street, cạnh Man Mo Temple. Chuỗi có nhiều chi nhánh (Mong Kok, Sai Ying Pun, The Peak…), đây là chỗ nhiều review nhất.", time: "Sáng / chiều", mtr: "Sheung Wan",
+    url: "https://www.google.com/maps/search/?api=1&query=Halfway+Coffee+26+Upper+Lascar+Row+Sheung+Wan" },
+  { cat: "cafe", name: "Lee Keung Kee Bubble Waffle", zh: "利強記北角雞蛋仔", lat: 22.3028, lng: 114.1719, area: "Tsim Sha Tsui",
+    note: "Bánh trứng gà non (雞蛋仔 – bubble waffle) nổi tiếng, gốc từ North Point (492 King's Road). Chi nhánh 178 Nathan Road (TST) này cách hostel ~600 m. Ăn liền lúc vừa ra lò mới giòn. Thay thế: Mammy Pancake ở bến Star Ferry TST.", time: "Bất kỳ", mtr: "Tsim Sha Tsui / Jordan",
+    url: "https://www.google.com/maps/search/?api=1&query=%E5%88%A9%E5%BC%B7%E8%A8%98%E5%8C%97%E8%A7%92%E9%9B%9E%E8%9B%8B%E4%BB%94+178+Nathan+Road" },
+  { cat: "cafe", name: "Heartwarming (Black Sesame)", zh: "暖心芝作", lat: 22.3258, lng: 114.1668, area: "Prince Edward / Mong Kok",
+    note: "Chuyên đồ mè đen. Món viral là kem tươi mè đen (soft serve), ngoài ra có pudding mè đen, bánh cuộn mè đen và sữa đậu nành mè đen không đường. Hay phải xếp hàng. Chi nhánh 23 Yu Chau Street (汝州街), gần Hung Wan và Sham Shui Po. Chi nhánh khác: 50 Electric Road, Tin Hau.", time: "Chiều", mtr: "Prince Edward",
+    url: "https://www.google.com/maps/search/?api=1&query=%E6%9A%96%E5%BF%83%E8%8A%9D%E4%BD%9C+%E6%B1%9D%E5%B7%9E%E8%A1%97+23" },
+  { cat: "cafe", name: "Hung Wan Cafe", zh: "鴻運冰廳餅店", lat: 22.3225, lng: 114.1675, area: "Mong Kok",
+    note: "Băng sảnh kiêm tiệm bánh cũ từ 1977. Bánh mì, bánh tart dừa, bánh bơ ra lò mỗi ngày, ăn kèm trà sữa kiểu HK. Địa chỉ: 726 Shanghai Street.", time: "Sáng / trưa", mtr: "Prince Edward / Mong Kok",
+    url: "https://www.google.com/maps/search/?api=1&query=%E9%B4%BB%E9%81%8B%E5%86%B0%E5%BB%B3%E9%A4%85%E5%BA%97+726+Shanghai+Street",
+    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/8a/HK_YTM_MK_%E6%97%BA%E8%A7%92_Mong_Kok_%E4%B8%8A%E6%B5%B7%E8%A1%97_729_Shanghai_Street_%E9%B4%BB%E9%81%8B%E5%86%B0%E5%BB%B3%E9%A4%85%E5%BA%97_Hung_Wan_Cafe_%26_Bakery_February_2023_Px3_01.jpg/960px-HK_YTM_MK_%E6%97%BA%E8%A7%92_Mong_Kok_%E4%B8%8A%E6%B5%B7%E8%A1%97_729_Shanghai_Street_%E9%B4%BB%E9%81%8B%E5%86%B0%E5%BB%B3%E9%A4%85%E5%BA%97_Hung_Wan_Cafe_%26_Bakery_February_2023_Px3_01.jpg" },
 
   // --- Giải trí ---
-  { cat: "fun", name: "Ngong Ping 360", zh: "昂坪360", lat: 22.2889, lng: 113.9414, area: "Tung Chung",
-    note: "Cáp treo 25 phút lên Big Buddha. Chọn cabin Crystal (sàn kính) nếu dám. Mua vé online trước.", time: "Sáng sớm", mtr: "Tung Chung (exit B)",
-    img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/ad/Ngong_Ping_360_Cable_Car_and_HKG_2021-09.jpg/960px-Ngong_Ping_360_Cable_Car_and_HKG_2021-09.jpg" },
   { cat: "fun", name: "Hong Kong Disneyland", zh: "香港迪士尼樂園", lat: 22.3129, lng: 114.0413, area: "Lantau",
     note: "Có World of Frozen độc quyền. Cả ngày.", time: "Cả ngày", mtr: "Disneyland Resort",
     img: "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/8e/Hong_Kong_Disneyland_Castle.jpg/960px-Hong_Kong_Disneyland_Castle.jpg" },
@@ -353,13 +415,45 @@ let visited = store.get();
 const activeCats = new Set(); // rỗng = hiện tất cả
 const idOf = p => p.name;
 
-const map = L.map("map", { zoomControl: true, maxZoom: 16 }).setView([22.30, 114.12], 11);
+const isPhone = () => matchMedia("(max-width: 768px)").matches;
+const map = L.map("map", { zoomControl: true, maxZoom: 16 });
+map.fitBounds(L.latLngBounds(PLACES.map(p => [p.lat, p.lng])), { padding: [24, 24] });
 // Nền xám trơn, chỉ để biết điểm nằm phía nào. Tile từ zoom 15 trở lên có tên đường
 // nên giữ ở 14 rồi phóng to.
 L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}", {
   maxNativeZoom: 14, maxZoom: 16,
   attribution: "Tiles &copy; Esri",
 }).addTo(map);
+
+// Nút xem bản đồ toàn màn hình (làm bằng CSS vì iPhone Safari không hỗ trợ Fullscreen API cho div)
+const ICON_EXPAND = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>`;
+const ICON_SHRINK = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/></svg>`;
+let fullBtn;
+const FullControl = L.Control.extend({
+  options: { position: "topright" },
+  onAdd() {
+    const bar = L.DomUtil.create("div", "leaflet-bar");
+    fullBtn = L.DomUtil.create("a", "full-btn", bar);
+    fullBtn.href = "#";
+    fullBtn.setAttribute("role", "button");
+    L.DomEvent.disableClickPropagation(bar);
+    L.DomEvent.on(fullBtn, "click", e => {
+      L.DomEvent.preventDefault(e);
+      setFull(!document.body.classList.contains("map-full"));
+    });
+    return bar;
+  },
+});
+map.addControl(new FullControl());
+
+function setFull(on) {
+  document.body.classList.toggle("map-full", on);
+  fullBtn.innerHTML = on ? ICON_SHRINK : ICON_EXPAND;
+  fullBtn.title = on ? "Thu nhỏ bản đồ" : "Xem toàn màn hình";
+  map.invalidateSize();
+}
+setFull(false);
+document.addEventListener("keydown", e => { if (e.key === "Escape") setFull(false); });
 
 // Nhãn khu vực tự đặt: vùng lớn luôn hiện, khu nhỏ hiện khi zoom gần
 const REGIONS = [
@@ -432,7 +526,7 @@ function updatePins() {
 
 function updateLabels() {
   const z = map.getZoom();
-  map.getContainer().classList.toggle("hide-labels", z < 13);
+  map.getContainer().classList.toggle("hide-labels", z < (isPhone() ? 15 : 13));
   z >= 13 ? districtLayer.addTo(map) : districtLayer.remove();
 }
 map.on("zoomend", updateLabels);
@@ -504,7 +598,6 @@ $("list").addEventListener("click", e => {
   const m = markers.get(id);
   map.flyTo(m.getLatLng(), Math.max(map.getZoom(), 15), { duration: 0.6 });
   map.once("moveend", () => m.openPopup());
-  if (innerWidth <= 768) scrollTo({ top: 0, behavior: "smooth" });
 });
 
 // --- export KML để import vào Google My Maps ---

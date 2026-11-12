@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Travel Maps</title>
+<style>
+  :root { --bg: #f6f5f2; --panel: #fff; --text: #1d1d1f; --muted: #6b6b70; --line: #e4e2dd; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #141416; --panel: #1c1c1f; --text: #f2f2f2; --muted: #9a9aa0; --line: #2e2e33; color-scheme: dark; }
+  }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 32px max(16px, env(safe-area-inset-left)); }
+  h1 { font-size: 22px; margin: 0 0 16px; }
+  a { display: flex; justify-content: space-between; align-items: center; gap: 12px;
+    padding: 16px; margin-bottom: 10px; border: 1px solid var(--line); border-radius: 12px;
+    background: var(--panel); color: inherit; text-decoration: none; font-weight: 600; max-width: 480px; }
+  a small { color: var(--muted); font-weight: 500; }
+</style>
+</head>
+<body>
+<h1>Bản đồ chuyến đi</h1>
+<a href="hongkong.html">Hong Kong <small>香港</small></a>
+<a href="korea.html">Hàn Quốc <small>한국</small></a>
+</body>
+</html>
